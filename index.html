@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>still tbd</title>
+
+  <!-- D3 v7 + TopoJSON -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+
+  <style>
+    /* ── Design tokens ──────────────────────────────── */
+    :root {
+      --bg:          #0a0f1a;
+      --surface:     #111827;
+      --border:      #1f2d40;
+      --text:        #e2e8f0;
+      --text-muted:  #64748b;
+      --accent:      #38bdf8;
+
+      /* Biome palette — ecologically inspired */
+      --biome-tropical-rainforest:   #1a7a3c;
+      --biome-tropical-seasonal:     #4caf50;
+      --biome-subtropical-desert:    #e8c56d;
+      --biome-mediterranean:         #c8a44e;
+      --biome-temperate-grassland:   #8bc34a;
+      --biome-temperate-deciduous:   #558b2f;
+      --biome-temperate-rainforest:  #2e7d32;
+      --biome-boreal-forest:         #37474f;
+      --biome-tundra:                #90a4ae;
+      --biome-ice-polar:             #cfd8dc;
+      --biome-ocean:                 #1565c0;
+      --biome-montane:               #78909c;
+      --biome-mangrove:              #00695c;
+      --biome-flooded-grassland:     #00acc1;
+      --biome-unknown:               #2a3a4a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Courier New', 'Lucida Console', monospace;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ─────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+
+    .header-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .header-title h1 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .header-title p {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .control-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      padding: 5px 12px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.15s;
+    }
+
+    .control-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .control-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(56,189,248,0.08);
+    }
+
+    /* ── Main layout ─────────────────────────────────── */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Map container ───────────────────────────────── */
+    #map-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+    }
+
+    #map-container:active { cursor: grabbing; }
+
+    svg#map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ── Graticule + sphere ──────────────────────────── */
+    .sphere        { fill: #0d1f35; }
+    .graticule     { fill: none; stroke: #1a2e45; stroke-width: 0.4px; }
+    .country-border{ fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 0.6px; }
+
+    /* ── Biome paths ─────────────────────────────────── */
+    .biome {
+      stroke: rgba(0,0,0,0.25);
+      stroke-width: 0.3px;
+      transition: filter 0.15s, opacity 0.15s;
+    }
+
+    .biome:hover {
+      filter: brightness(1.35) saturate(1.2);
+      stroke: rgba(255,255,255,0.5);
+      stroke-width: 1px;
+      cursor: pointer;
+    }
+
+    .biome-highlighted { filter: brightness(1.4) saturate(1.3); }
+    .biome-dimmed      { opacity: 0.25; }
+
+    /* biome fills */
+    .biome[data-biome="Tropical Rainforest"]    { fill: var(--biome-tropical-rainforest); }
+    .biome[data-biome="Tropical Seasonal Forest"]{ fill: var(--biome-tropical-seasonal); }
+    .biome[data-biome="Subtropical Desert"]     { fill: var(--biome-subtropical-desert); }
+    .biome[data-biome="Mediterranean Shrubland"]{ fill: var(--biome-mediterranean); }
+    .biome[data-biome="Temperate Grassland"]    { fill: var(--biome-temperate-grassland); }
+    .biome[data-biome="Temperate Deciduous Forest"]{ fill: var(--biome-temperate-deciduous); }
+    .biome[data-biome="Temperate Rainforest"]   { fill: var(--biome-temperate-rainforest); }
+    .biome[data-biome="Boreal Forest / Taiga"]  { fill: var(--biome-boreal-forest); }
+    .biome[data-biome="Tundra"]                 { fill: var(--biome-tundra); }
+    .biome[data-biome="Ice / Polar Desert"]     { fill: var(--biome-ice-polar); }
+    .biome[data-biome="Ocean"]                  { fill: var(--biome-ocean); }
+    .biome[data-biome="Montane / Alpine"]       { fill: var(--biome-montane); }
+    .biome[data-biome="Mangrove"]               { fill: var(--biome-mangrove); }
+    .biome[data-biome="Flooded Grassland"]      { fill: var(--biome-flooded-grassland); }
+
+    /* ── Sidebar legend ──────────────────────────────── */
+    #sidebar {
+      width: 220px;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .sidebar-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-label {
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 4px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .legend-item:hover { background: rgba(255,255,255,0.04); }
+
+    .legend-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .legend-name {
+      font-size: 10px;
+      color: var(--text);
+      letter-spacing: 0.03em;
+      line-height: 1.3;
+    }
+
+    /* ── NASA data layer placeholder ────────────────── */
+    .nasa-layer-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 4px;
+    }
+
+    .nasa-layer-label {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .layer-toggle {
+      width: 28px;
+      height: 14px;
+      background: var(--border);
+      border-radius: 7px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .layer-toggle.on { background: var(--accent); }
+
+    .layer-toggle::after {
+      content: '';
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: white;
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.2s;
+    }
+
+    .layer-toggle.on::after { transform: translateX(14px); }
+
+    /* ── Tooltip ─────────────────────────────────────── */
+    #tooltip {
+      position: fixed;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.1s;
+      z-index: 1000;
+      min-width: 180px;
+      max-width: 260px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    #tooltip.visible { opacity: 1; }
+
+    .tt-header {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tt-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .tt-biome-name {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .tt-body {
+      padding: 8px 12px;
+    }
+
+    .tt-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 2px 0;
+      gap: 12px;
+    }
+
+    .tt-key {
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .tt-val {
+      font-size: 10px;
+      color: var(--text);
+      text-align: right;
+    }
+
+    .tt-nasa-placeholder {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--border);
+    }
+
+    .tt-nasa-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .tt-nasa-value {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* ── Zoom indicator ──────────────────────────────── */
+    #zoom-indicator {
+      position: absolute;
+      bottom: 14px;
+      left: 16px;
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    /* ── Loading overlay ─────────────────────────────── */
+    #loading {
+      position: absolute;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 100;
+    }
+
+    .loading-text {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .loading-bar {
+      width: 160px;
+      height: 2px;
+      background: var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .loading-bar::after {
+      content: '';
+      position: absolute;
+      left: -50%;
+      width: 50%;
+      height: 100%;
+      background: var(--accent);
+      animation: loading-sweep 1s ease-in-out infinite;
+    }
+
+    @keyframes loading-sweep {
+      0%   { left: -50%; }
+      100% { left: 150%; }
+    }
+
+    /* ── Scrollbar ───────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ───────────────────────────────────────── -->
+<header>
+  <div class="header-title">
+    <h1>World Biome Map</h1>
+    <p>Ecological biome boundaries · NASA data-ready</p>
+  </div>
+  <div class="header-controls">
+    <button class="control-btn active" id="btn-natural" onclick="setProjection('naturalEarth')">Natural Earth</button>
+    <button class="control-btn" id="btn-mercator" onclick="setProjection('mercator')">Mercator</button>
+    <button class="control-btn" id="btn-reset" onclick="resetZoom()">Reset</button>
+  </div>
+</header>
+
+<!-- ── Main ─────────────────────────────────────────── -->
+<div class="main">
+  <!-- Map -->
+  <div id="map-container">
+    <div id="loading">
+      <div class="loading-bar"></div>
+      <div class="loading-text">Loading biome data…</div>
+    </div>
+    <svg id="map"></svg>
+    <div id="zoom-indicator">Zoom: 1.0×</div>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Biomes</div>
+      <div id="legend"></div>
+    </div>
+
+    <!--
+      NASA DATA LAYERS
+      ─────────────────────────────────────────────────────
+      When you're ready to integrate NASA datasets, each
+      toggle here can enable/disable an overlay layer on
+      the map. Suggested datasets:
+        • MODIS Land Surface Temperature (MOD11)
+        • NDVI Vegetation Index (MOD13)
+        • Net Primary Productivity (MOD17)
+        • Precipitation (GPM IMERG)
+        • Soil Moisture (SMAP)
+
+      Pattern to follow:
+        1. Fetch your GeoJSON/raster from NASA EarthData or
+           a WMTS tile service (e.g. GIBS).
+        2. Add a new SVG <g> layer below the biome layer.
+        3. Bind data to the layer; use a sequential color
+           scale (d3.scaleSequential) mapped to the value range.
+        4. Wire the toggle below to show/hide the <g>.
+        5. Add the variable to the tooltip tt-nasa-value rows.
+      ─────────────────────────────────────────────────────
+    -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">NASA Layers</div>
+
+      <div class="nasa-layer-item">
+        <span class="nasa-layer-label">Land Surface Temp</span>
+        <div class="layer-toggle" id="toggle-lst" onclick="toggleNasaLayer('lst', this)" title="MODIS MOD11 — not yet loaded"></div>
+      </div>
+      <div class="nasa-layer-item">
+        <span class="nasa-layer-label">NDVI Vegetation</span>
+        <div class="layer-toggle" id="toggle-ndvi" onclick="toggleNasaLayer('ndvi', this)" title="MODIS MOD13 — not yet loaded"></div>
+      </div>
+      <div class="nasa-layer-item">
+        <span class="nasa-layer-label">Precipitation</span>
+        <div class="layer-toggle" id="toggle-precip" onclick="toggleNasaLayer('precip', this)" title="GPM IMERG — not yet loaded"></div>
+      </div>
+      <div class="nasa-layer-item">
+        <span class="nasa-layer-label">Net Primary Prod.</span>
+        <div class="layer-toggle" id="toggle-npp" onclick="toggleNasaLayer('npp', this)" title="MODIS MOD17 — not yet loaded"></div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Info</div>
+      <div style="font-size:10px; color:var(--text-muted); line-height:1.6;">
+        Hover a region for details.<br>
+        Scroll or pinch to zoom.<br>
+        Click + drag to pan.<br><br>
+        Biome boundaries are approximated from Whittaker (1975) climate envelope model mapped onto simplified world polygons.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tooltip ───────────────────────────────────────── -->
+<div id="tooltip">
+  <div class="tt-header">
+    <div class="tt-swatch" id="tt-swatch"></div>
+    <div class="tt-biome-name" id="tt-biome-name"></div>
+  </div>
+  <div class="tt-body">
+    <div class="tt-row">
+      <span class="tt-key">Climate</span>
+      <span class="tt-val" id="tt-climate"></span>
+    </div>
+    <div class="tt-row">
+      <span class="tt-key">Precip.</span>
+      <span class="tt-val" id="tt-precip"></span>
+    </div>
+    <div class="tt-row">
+      <span class="tt-key">Temp range</span>
+      <span class="tt-val" id="tt-temp"></span>
+    </div>
+
+    <!--
+      NASA DATA PLACEHOLDER ROWS
+      Uncomment and populate once data is wired up:
+
+      <div class="tt-nasa-placeholder">
+        <div class="tt-nasa-label">NASA / Live Data</div>
+        <div class="tt-row">
+          <span class="tt-key">LST (MODIS)</span>
+          <span class="tt-val" id="tt-lst">—</span>
+        </div>
+        <div class="tt-row">
+          <span class="tt-key">NDVI</span>
+          <span class="tt-val" id="tt-ndvi">—</span>
+        </div>
+        <div class="tt-row">
+          <span class="tt-key">Precip (GPM)</span>
+          <span class="tt-val" id="tt-precip-nasa">—</span>
+        </div>
+      </div>
+    -->
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   BIOME DEFINITIONS
+   Each entry includes:
+     - color     : CSS var reference (also the fill class)
+     - climate   : displayed in tooltip
+     - precip    : annual precipitation range
+     - temp      : temperature range
+     - regions   : approximate lat/lon bounding boxes used to
+                   classify generated polygons (simplified model)
+
+   When you integrate NASA data, add fields here per biome
+   (e.g., mean_lst, mean_ndvi, etc.) for tooltip display.
+═══════════════════════════════════════════════════════════ */
+const BIOMES = {
+  "Tropical Rainforest": {
+    color: "#1a7a3c",
+    climate: "Tropical wet",
+    precip: "2000–4000 mm/yr",
+    temp: "20–28 °C year-round",
+    regions: [
+      [-10, -80, 10, -35],   // Amazon
+      [-5, 8, 5, 45],        // Congo
+      [-10, 100, 10, 150],   // SE Asia
+    ]
+  },
+  "Tropical Seasonal Forest": {
+    color: "#4caf50",
+    climate: "Tropical seasonal",
+    precip: "1000–2000 mm/yr",
+    temp: "20–30 °C",
+    regions: [
+      [10, -80, 25, -60],    // Central America / Caribbean
+      [-25, -60, -10, -35],  // SE Brazil / Cerrado fringe
+      [10, 65, 25, 90],      // India seasonal
+    ]
+  },
+  "Subtropical Desert": {
+    color: "#e8c56d",
+    climate: "Arid / hot desert",
+    precip: "<250 mm/yr",
+    temp: "15–45 °C",
+    regions: [
+      [15, -20, 35, 60],     // Sahara / Arabian
+      [20, 60, 35, 75],      // Iranian / Thar fringe
+      [-35, 115, -20, 135],  // Australian interior
+      [25, -120, 35, -105],  // Sonoran
+    ]
+  },
+  "Mediterranean Shrubland": {
+    color: "#c8a44e",
+    climate: "Mediterranean",
+    precip: "300–700 mm/yr",
+    temp: "10–22 °C",
+    regions: [
+      [35, -10, 45, 40],     // Med basin
+      [30, -120, 40, -115],  // California
+      [-37, 115, -30, 135],  // SW Australia
+      [-40, -75, -30, -65],  // Chile
+    ]
+  },
+  "Temperate Grassland": {
+    color: "#8bc34a",
+    climate: "Semi-arid continental",
+    precip: "250–750 mm/yr",
+    temp: "-5–25 °C",
+    regions: [
+      [45, 50, 55, 90],      // Eurasian steppe
+      [25, -105, 50, -85],   // Great Plains
+      [-40, -65, -25, -45],  // Pampas
+    ]
+  },
+  "Temperate Deciduous Forest": {
+    color: "#558b2f",
+    climate: "Temperate humid",
+    precip: "700–1500 mm/yr",
+    temp: "-5–20 °C",
+    regions: [
+      [40, -90, 55, -65],    // Eastern N America
+      [45, 5, 60, 30],       // W/Central Europe
+      [30, 110, 45, 145],    // E Asia
+    ]
+  },
+  "Temperate Rainforest": {
+    color: "#2e7d32",
+    climate: "Cool temperate wet",
+    precip: "1400–3000 mm/yr",
+    temp: "4–12 °C",
+    regions: [
+      [45, -130, 60, -120],  // Pacific NW
+      [-50, -80, -35, -72],  // Chilean temperate
+      [-45, 165, -38, 175],  // NZ
+    ]
+  },
+  "Boreal Forest / Taiga": {
+    color: "#37474f",
+    climate: "Subarctic continental",
+    precip: "200–750 mm/yr",
+    temp: "-40–15 °C",
+    regions: [
+      [55, -140, 70, -60],   // N America boreal
+      [55, 30, 70, 140],     // Siberian taiga
+      [60, 5, 70, 30],       // Scandinavia
+    ]
+  },
+  "Tundra": {
+    color: "#90a4ae",
+    climate: "Polar / subpolar",
+    precip: "150–500 mm/yr",
+    temp: "-30–5 °C",
+    regions: [
+      [68, -180, 80, 180],   // Arctic tundra belt
+      [-80, -180, -60, 180], // Antarctic fringe
+    ]
+  },
+  "Ice / Polar Desert": {
+    color: "#cfd8dc",
+    climate: "Polar ice",
+    precip: "<200 mm/yr (snow)",
+    temp: "-60 to -10 °C",
+    regions: [
+      [80, -180, 90, 180],   // Arctic
+      [-90, -180, -78, 180], // Antarctica
+    ]
+  },
+  "Montane / Alpine": {
+    color: "#78909c",
+    climate: "High-altitude variable",
+    precip: "400–1500 mm/yr",
+    temp: "-10–10 °C",
+    regions: [
+      [27, 75, 42, 95],      // Himalayas
+      [35, -115, 50, -100],  // Rockies
+      [-20, -75, 5, -65],    // Andes
+      [45, 6, 48, 15],       // Alps
+    ]
+  },
+  "Mangrove": {
+    color: "#00695c",
+    climate: "Tropical coastal",
+    precip: "1200–3000 mm/yr",
+    temp: "20–30 °C",
+    regions: [
+      [5, 95, 15, 110],      // SE Asia coast
+      [-5, 35, 5, 42],       // E Africa
+      [5, -80, 12, -60],     // Caribbean coast
+    ]
+  },
+  "Flooded Grassland": {
+    color: "#00acc1",
+    climate: "Subtropical wetland",
+    precip: "1000–2000 mm/yr",
+    temp: "15–30 °C",
+    regions: [
+      [-22, -60, -15, -50],  // Pantanal
+      [5, 25, 15, 35],       // Sudd / Sahel wetlands
+    ]
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════
+   CLASSIFY A FEATURE by centroid coordinates
+═══════════════════════════════════════════════════════════ */
+function classifyBiome(centroidLon, centroidLat) {
+  const lat = centroidLat;
+  const lon = centroidLon;
+
+  for (const [name, def] of Object.entries(BIOMES)) {
+    if (!def.regions) continue;
+    for (const [minLat, minLon, maxLat, maxLon] of def.regions) {
+      if (lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon) {
+        return name;
+      }
+    }
+  }
+
+  // Climate-envelope fallback (Whittaker-style lat bands)
+  const absLat = Math.abs(lat);
+  if (absLat > 80)  return "Ice / Polar Desert";
+  if (absLat > 68)  return "Tundra";
+  if (absLat > 55)  return "Boreal Forest / Taiga";
+  if (absLat > 40)  return "Temperate Deciduous Forest";
+  if (absLat > 30)  return "Temperate Grassland";
+  if (absLat > 20)  return "Subtropical Desert";
+  if (absLat > 10)  return "Tropical Seasonal Forest";
+  return "Tropical Rainforest";
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAP STATE
+═══════════════════════════════════════════════════════════ */
+let currentProjectionType = 'naturalEarth';
+let svg, g, path, projection, zoom;
+const tooltip = document.getElementById('tooltip');
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+async function init() {
+  // Load world TopoJSON from CDN
+  const world = await d3.json(
+    "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
+  );
+
+  const countries = topojson.feature(world, world.objects.countries);
+  setupMap(countries);
+  buildLegend();
+  document.getElementById('loading').style.display = 'none';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SETUP MAP
+═══════════════════════════════════════════════════════════ */
+function setupMap(countries) {
+  const container = document.getElementById('map-container');
+  const W = container.clientWidth;
+  const H = container.clientHeight;
+
+  svg = d3.select('#map')
+    .attr('width', W)
+    .attr('height', H);
+
+  // Zoom behaviour
+  zoom = d3.zoom()
+    .scaleExtent([0.5, 20])
+    .on('zoom', (event) => {
+      g.attr('transform', event.transform);
+      document.getElementById('zoom-indicator').textContent =
+        `Zoom: ${event.transform.k.toFixed(1)}×`;
+    });
+
+  svg.call(zoom);
+
+  // Defs: clip path for globe
+  svg.append('defs').append('clipPath')
+    .attr('id', 'globe-clip')
+    .append('circle');
+
+  g = svg.append('g');
+
+  // Layers (order matters for z-index)
+  g.append('g').attr('class', 'layer-sphere');
+  g.append('g').attr('class', 'layer-biomes');
+  g.append('g').attr('class', 'layer-nasa');   // Reserved for NASA overlays
+  g.append('g').attr('class', 'layer-borders');
+  g.append('g').attr('class', 'layer-graticule');
+
+  renderProjection(countries, W, H);
+  window._worldData = countries;
+
+  // Resize handler
+  window.addEventListener('resize', () => {
+    const W2 = container.clientWidth;
+    const H2 = container.clientHeight;
+    svg.attr('width', W2).attr('height', H2);
+    renderProjection(window._worldData, W2, H2);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER / RE-RENDER PROJECTION
+═══════════════════════════════════════════════════════════ */
+function renderProjection(countries, W, H) {
+
+  if (currentProjectionType === 'mercator') {
+    projection = d3.geoMercator().scale(W / 6.5).translate([W / 2, H / 1.6]);
+  } else {
+    projection = d3.geoNaturalEarth1().scale(W / 6.4).translate([W / 2, H / 2]);
+  }
+
+  path = d3.geoPath().projection(projection);
+  const graticule = d3.geoGraticule()();
+
+  // Sphere
+  const sphereLayer = g.select('.layer-sphere');
+  sphereLayer.selectAll('*').remove();
+  sphereLayer.append('path')
+    .datum({ type: 'Sphere' })
+    .attr('class', 'sphere')
+    .attr('d', path);
+
+  // Graticule
+  const gratLayer = g.select('.layer-graticule');
+  gratLayer.selectAll('*').remove();
+  gratLayer.append('path')
+    .datum(graticule)
+    .attr('class', 'graticule')
+    .attr('d', path);
+
+  // Biomes
+  const biomeLayer = g.select('.layer-biomes');
+  biomeLayer.selectAll('*').remove();
+
+  biomeLayer.selectAll('path.biome')
+    .data(countries.features)
+    .join('path')
+    .attr('class', 'biome')
+    .attr('d', path)
+    .each(function(d) {
+      const centroid = d3.geoCentroid(d);
+      const biomeName = classifyBiome(centroid[0], centroid[1]);
+      d3.select(this).attr('data-biome', biomeName);
+      d3.select(this).attr('data-id', d.id);
+    })
+    .on('mousemove', handleMouseMove)
+    .on('mouseleave', handleMouseLeave);
+
+  // Country borders
+  const borderLayer = g.select('.layer-borders');
+  borderLayer.selectAll('*').remove();
+  borderLayer.append('path')
+    .datum(countries)
+    .attr('class', 'country-border')
+    .attr('d', path);
+
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TOOLTIP HANDLERS
+═══════════════════════════════════════════════════════════ */
+function handleMouseMove(event, d) {
+  const biomeName = this.getAttribute('data-biome');
+  const biome = BIOMES[biomeName];
+  if (!biome) return;
+
+  // Position tooltip
+  const pad = 14;
+  let x = event.clientX + pad;
+  let y = event.clientY + pad;
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const ttW = 260, ttH = 140;
+  if (x + ttW > W) x = event.clientX - ttW - pad;
+  if (y + ttH > H) y = event.clientY - ttH - pad;
+
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+
+  // Populate
+  document.getElementById('tt-swatch').style.background = biome.color;
+  document.getElementById('tt-biome-name').textContent = biomeName;
+  document.getElementById('tt-climate').textContent = biome.climate;
+  document.getElementById('tt-precip').textContent = biome.precip;
+  document.getElementById('tt-temp').textContent = biome.temp;
+
+  /*
+    NASA DATA POPULATION — when your data is wired up, replace the
+    placeholder lines below with actual values per feature. Example:
+
+    const nasaData = window.nasaDataByCountryId?.[d.id];
+    document.getElementById('tt-lst').textContent =
+      nasaData ? `${nasaData.lst.toFixed(1)} °C` : '—';
+    document.getElementById('tt-ndvi').textContent =
+      nasaData ? nasaData.ndvi.toFixed(3) : '—';
+  */
+
+  tooltip.classList.add('visible');
+
+  // Dim others, highlight this
+  d3.selectAll('.biome')
+    .classed('biome-dimmed', true)
+    .classed('biome-highlighted', false);
+  d3.selectAll(`.biome[data-biome="${biomeName}"]`)
+    .classed('biome-dimmed', false)
+    .classed('biome-highlighted', true);
+}
+
+function handleMouseLeave() {
+  tooltip.classList.remove('visible');
+  d3.selectAll('.biome')
+    .classed('biome-dimmed', false)
+    .classed('biome-highlighted', false);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PROJECTION SWITCHING
+═══════════════════════════════════════════════════════════ */
+function setProjection(type) {
+  currentProjectionType = type;
+  document.querySelectorAll('.control-btn[id^="btn-"]').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + (type === 'naturalEarth' ? 'natural' : 'mercator')).classList.add('active');
+  const container = document.getElementById('map-container');
+  renderProjection(window._worldData, container.clientWidth, container.clientHeight);
+  resetZoom();
+}
+
+function resetZoom() {
+  svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LEGEND
+═══════════════════════════════════════════════════════════ */
+function buildLegend() {
+  const legend = document.getElementById('legend');
+  for (const [name, def] of Object.entries(BIOMES)) {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `
+      <div class="legend-swatch" style="background:${def.color}"></div>
+      <div class="legend-name">${name}</div>
+    `;
+    // Hover to highlight on map
+    item.addEventListener('mouseenter', () => {
+      d3.selectAll('.biome').classed('biome-dimmed', true);
+      d3.selectAll(`.biome[data-biome="${name}"]`)
+        .classed('biome-dimmed', false)
+        .classed('biome-highlighted', true);
+    });
+    item.addEventListener('mouseleave', () => {
+      d3.selectAll('.biome')
+        .classed('biome-dimmed', false)
+        .classed('biome-highlighted', false);
+    });
+    legend.appendChild(item);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NASA LAYER TOGGLES (stub — wire up when data is ready)
+
+   Pattern:
+     1. Load your GeoJSON or raster tiles and bind to
+        d3.select('.layer-nasa')
+     2. Toggle visibility here
+     3. Update tooltip rows for the active layer
+═══════════════════════════════════════════════════════════ */
+const nasaLayerState = { lst: false, ndvi: false, precip: false, npp: false };
+
+function toggleNasaLayer(layer, el) {
+  nasaLayerState[layer] = !nasaLayerState[layer];
+  el.classList.toggle('on', nasaLayerState[layer]);
+
+  if (nasaLayerState[layer]) {
+    console.log(`[NASA] Layer "${layer}" toggled ON — wire up data here.`);
+    // TODO: loadNasaLayer(layer);
+  } else {
+    console.log(`[NASA] Layer "${layer}" toggled OFF.`);
+    // TODO: unloadNasaLayer(layer);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════════════════ */
+init().catch(err => {
+  document.getElementById('loading').querySelector('.loading-text').textContent =
+    'Error loading data — check console.';
+  console.error(err);
+});
+</script>
+</body>
+</html>
