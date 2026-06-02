@@ -3,174 +3,337 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>World Biome Map</title>
+  <title>Anatomy of a Drought</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg:#0a0f1a; --surface:#111827; --border:#1f2d40;
-      --text:#e2e8f0; --text-muted:#64748b; --accent:#38bdf8;
+      --bg:#0a0f1a; --surface:#111827; --border:#1f2d40; --border-light:#2a3d54;
+      --text:#e2e8f0; --text-muted:#64748b; --text-dim:#3d5068; --accent:#38bdf8;
+      --accent-warm:#f59e0b; --accent-danger:#ef4444;
+      --font-display:'DM Serif Display',Georgia,serif;
+      --font-mono:'DM Mono','Courier New',monospace;
+      --font-body:'Instrument Sans',sans-serif;
     }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { background:var(--bg); color:var(--text); font-family:'Courier New',monospace; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
-    header { display:flex; align-items:center; justify-content:space-between; padding:12px 24px; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0; }
-    .header-title h1 { font-size:13px; font-weight:700; letter-spacing:0.2em; text-transform:uppercase; color:var(--accent); }
-    .header-title p  { font-size:10px; color:var(--text-muted); letter-spacing:0.1em; }
-    .header-controls { display:flex; gap:8px; }
-    .control-btn { background:transparent; border:1px solid var(--border); color:var(--text-muted); font-family:inherit; font-size:10px; letter-spacing:0.1em; padding:5px 12px; cursor:pointer; text-transform:uppercase; transition:all 0.15s; }
-    .control-btn:hover,.control-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(56,189,248,0.08); }
-    .main { display:flex; flex:1; overflow:hidden; }
-    #map-container { flex:1; position:relative; overflow:hidden; cursor:grab; }
-    #map-container:active { cursor:grabbing; }
-    svg#map { width:100%; height:100%; }
-    .sphere      { fill:#0d1f35; }
-    .graticule   { fill:none; stroke:#1a2e45; stroke-width:0.4px; }
-    .country-border { fill:none; stroke:rgba(255,255,255,0.12); stroke-width:0.6px; }
-    .biome { stroke:rgba(0,0,0,0.25); stroke-width:0.3px; transition:filter 0.15s,opacity 0.15s; }
-    .biome:hover { filter:brightness(1.35) saturate(1.2); stroke:rgba(255,255,255,0.5); stroke-width:1px; cursor:pointer; }
-    .biome-highlighted { filter:brightness(1.4) saturate(1.3); }
-    .biome-dimmed { opacity:0.2; }
-    .biome[data-biome="Tropical Rainforest"]       { fill:#1a7a3c; }
-    .biome[data-biome="Tropical Seasonal Forest"]  { fill:#4caf50; }
-    .biome[data-biome="Subtropical Desert"]         { fill:#e8c56d; }
-    .biome[data-biome="Mediterranean Shrubland"]    { fill:#c8a44e; }
-    .biome[data-biome="Temperate Grassland"]        { fill:#8bc34a; }
-    .biome[data-biome="Temperate Deciduous Forest"] { fill:#558b2f; }
-    .biome[data-biome="Temperate Rainforest"]       { fill:#2e7d32; }
-    .biome[data-biome="Boreal Forest / Taiga"]      { fill:#37474f; }
-    .biome[data-biome="Tundra"]                     { fill:#90a4ae; }
-    .biome[data-biome="Ice / Polar Desert"]         { fill:#cfd8dc; }
-    .biome[data-biome="Montane / Alpine"]           { fill:#78909c; }
-    .biome[data-biome="Mangrove"]                   { fill:#00695c; }
-    .biome[data-biome="Flooded Grassland"]          { fill:#00acc1; }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--font-body);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
 
-    /* sidebar */
-    #sidebar { width:240px; background:var(--surface); border-left:1px solid var(--border); display:flex; flex-direction:column; overflow-y:auto; flex-shrink:0; }
-    .sidebar-section { padding:16px; border-bottom:1px solid var(--border); }
-    .sidebar-label { font-size:9px; letter-spacing:0.2em; text-transform:uppercase; color:var(--text-muted); margin-bottom:10px; }
-    .legend-item { display:flex; align-items:center; gap:8px; padding:5px 4px; border-radius:3px; cursor:pointer; transition:background 0.1s; }
-    .legend-item:hover { background:rgba(255,255,255,0.04); }
-    .legend-swatch { width:12px; height:12px; border-radius:2px; flex-shrink:0; border:1px solid rgba(255,255,255,0.1); }
-    .legend-name { font-size:10px; color:var(--text); line-height:1.3; }
+    /* ══ MAP VIEW ══════════════════════════════════════════ */
+    #view-map{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+    #view-map.hidden{display:none;}
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+    .header-title h1{font-family:var(--font-display);font-size:17px;font-weight:400;color:var(--text);letter-spacing:0.01em;}
+    .header-title p{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:0.14em;margin-top:1px;}
+    .header-controls{display:flex;gap:8px;}
+    .control-btn{background:transparent;border:1px solid var(--border);color:var(--text-muted);font-family:var(--font-mono);font-size:9px;letter-spacing:0.12em;padding:5px 12px;cursor:pointer;text-transform:uppercase;transition:all 0.15s;}
+    .control-btn:hover,.control-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(56,189,248,0.08);}
+    .main{display:flex;flex:1;overflow:hidden;}
+    #map-container{flex:1;position:relative;overflow:hidden;}
+    svg#map{width:100%;height:100%;}
+    .sphere{fill:#0d1f35;}
+
+    /* biome paths — pointer-events:none so the overlay div receives clicks */
+    .biome{stroke:rgba(0,0,0,0.25);stroke-width:0.3px;transition:filter 0.15s,opacity 0.15s;}
+    .biome-highlighted{filter:brightness(1.4) saturate(1.3);}
+    .biome-dimmed{opacity:0.2;}
+    .biome[data-biome="Tropical Rainforest"]       {fill:#1a7a3c;}
+    .biome[data-biome="Tropical Seasonal Forest"]  {fill:#4caf50;}
+    .biome[data-biome="Subtropical Desert"]        {fill:#e8c56d;}
+    .biome[data-biome="Mediterranean Shrubland"]   {fill:#c8a44e;}
+    .biome[data-biome="Temperate Grassland"]       {fill:#8bc34a;}
+    .biome[data-biome="Temperate Deciduous Forest"]{fill:#558b2f;}
+    .biome[data-biome="Temperate Rainforest"]      {fill:#2e7d32;}
+    .biome[data-biome="Boreal Forest / Taiga"]     {fill:#37474f;}
+    .biome[data-biome="Tundra"]                    {fill:#90a4ae;}
+    .biome[data-biome="Ice / Polar Desert"]        {fill:#cfd8dc;}
+    .biome[data-biome="Montane / Alpine"]          {fill:#78909c;}
+    .biome[data-biome="Mangrove"]                  {fill:#00695c;}
+    .biome[data-biome="Flooded Grassland"]         {fill:#00acc1;}
+
+    /* ── SIDEBAR ── */
+    #sidebar{width:260px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;}
+    .sidebar-section{padding:16px;border-bottom:1px solid var(--border);}
+    .sidebar-label{font-family:var(--font-mono);font-size:8px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;}
+    .legend-item{display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:3px;transition:background 0.1s;}
+    .legend-item:hover{background:rgba(255,255,255,0.04);}
+    .legend-swatch{width:11px;height:11px;border-radius:2px;flex-shrink:0;border:1px solid rgba(255,255,255,0.1);}
+    .legend-name{font-family:var(--font-body);font-size:10px;color:var(--text);line-height:1.3;flex:1;}
+    .legend-explore-btn{font-family:var(--font-mono);font-size:8px;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(56,189,248,0.45);background:rgba(56,189,248,0.1);padding:4px 9px;border-radius:2px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background 0.15s,border-color 0.15s;}
+    .legend-explore-btn:hover{background:rgba(56,189,248,0.22);border-color:rgba(56,189,248,0.8);}
 
     /* year scrubber */
-    #year-display { font-size:28px; font-weight:700; color:var(--accent); letter-spacing:0.1em; text-align:center; margin-bottom:10px; }
-    #year-slider { width:100%; cursor:pointer; accent-color:var(--accent); appearance:none; height:3px; background:var(--border); border-radius:2px; outline:none; }
-    #year-slider::-webkit-slider-thumb { appearance:none; width:14px; height:14px; border-radius:50%; background:var(--accent); cursor:pointer; }
-    .year-range { display:flex; justify-content:space-between; font-size:9px; color:var(--text-muted); margin-top:4px; }
-    #play-btn { display:block; width:100%; margin-top:10px; background:transparent; border:1px solid var(--border); color:var(--text-muted); font-family:inherit; font-size:10px; letter-spacing:0.15em; padding:6px 0; cursor:pointer; text-transform:uppercase; transition:all 0.15s; }
-    #play-btn:hover,.playing { border-color:var(--accent) !important; color:var(--accent) !important; background:rgba(56,189,248,0.08) !important; }
+    #year-display{font-family:var(--font-display);font-size:26px;color:var(--accent);text-align:center;margin-bottom:10px;}
+    #year-slider{width:100%;cursor:pointer;accent-color:var(--accent);appearance:none;height:2px;background:var(--border);border-radius:2px;outline:none;}
+    #year-slider::-webkit-slider-thumb{appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);cursor:pointer;}
+    .year-range{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:8px;color:var(--text-muted);margin-top:4px;}
+    #play-btn{display:block;width:100%;margin-top:10px;background:transparent;border:1px solid var(--border);color:var(--text-muted);font-family:var(--font-mono);font-size:9px;letter-spacing:0.15em;padding:6px 0;cursor:pointer;text-transform:uppercase;transition:all 0.15s;}
+    #play-btn:hover,.playing{border-color:var(--accent)!important;color:var(--accent)!important;background:rgba(56,189,248,0.08)!important;}
+    .nasa-layer-item{display:flex;align-items:center;justify-content:space-between;padding:6px 4px;}
+    .nasa-layer-label{font-family:var(--font-body);font-size:10px;color:var(--text-muted);}
+    .layer-toggle{width:28px;height:14px;background:var(--border);border-radius:7px;position:relative;cursor:pointer;transition:background 0.2s;}
+    .layer-toggle.on{background:var(--accent);}
+    .layer-toggle::after{content:'';position:absolute;width:10px;height:10px;background:white;border-radius:50%;top:2px;left:2px;transition:transform 0.2s;}
+    .layer-toggle.on::after{transform:translateX(14px);}
+    .scale-bar{height:8px;border-radius:2px;margin:8px 0 4px;}
+    .ndvi-bar{background:linear-gradient(to right,#8B2500,#D2691E,#F5DEB3,#90EE90,#228B22,#004d00);}
+    .lst-bar{background:linear-gradient(to right,#313695,#74add1,#ffffbf,#f46d43,#a50026);}
+    .scale-labels{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:8px;color:var(--text-muted);}
+    #ndvi-scale,#lst-scale{display:none;}
+    #ndvi-scale.visible,#lst-scale.visible{display:block;}
+    #tile-status{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-top:6px;min-height:14px;letter-spacing:0.05em;}
 
-    /* nasa toggles */
-    .nasa-layer-item { display:flex; align-items:center; justify-content:space-between; padding:6px 4px; }
-    .nasa-layer-label { font-size:10px; color:var(--text-muted); }
-    .layer-toggle { width:28px; height:14px; background:var(--border); border-radius:7px; position:relative; cursor:pointer; transition:background 0.2s; }
-    .layer-toggle.on { background:var(--accent); }
-    .layer-toggle::after { content:''; position:absolute; width:10px; height:10px; background:white; border-radius:50%; top:2px; left:2px; transition:transform 0.2s; }
-    .layer-toggle.on::after { transform:translateX(14px); }
+    /* ── TOOLTIP (cursor-following, info only) ── */
+    #tooltip{position:fixed;background:var(--surface);border:1px solid var(--border-light);pointer-events:none;opacity:0;transition:opacity 0.12s;z-index:900;min-width:190px;max-width:240px;box-shadow:0 8px 28px rgba(0,0,0,0.5);}
+    #tooltip.visible{opacity:1;}
+    .tt-header{padding:9px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;}
+    .tt-swatch{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+    .tt-biome-name{font-family:var(--font-display);font-size:13px;color:var(--text);}
+    .tt-body{padding:7px 13px 10px;}
+    .tt-row{display:flex;justify-content:space-between;padding:2px 0;gap:12px;}
+    .tt-key{font-family:var(--font-mono);font-size:8px;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;flex-shrink:0;}
+    .tt-val{font-family:var(--font-body);font-size:10px;color:var(--text);text-align:right;}
+    .tt-divider{border-top:1px dashed var(--border);margin:4px 0;}
+    /* click-to-explore nudge inside tooltip */
+    .tt-cta{
+      display:flex;align-items:center;gap:6px;
+      margin:8px 13px 10px;
+      padding:7px 10px;
+      background:rgba(56,189,248,0.1);
+      border:1px solid rgba(56,189,248,0.35);
+      border-radius:2px;
+      font-family:var(--font-mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);
+      animation:tt-pulse 1.8s ease-in-out infinite;
+    }
+    .tt-cta-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+    @keyframes tt-pulse{0%,100%{opacity:0.7}50%{opacity:1}}
 
-    /* color scale legend */
-    .scale-bar { height:8px; border-radius:2px; margin:8px 0 4px; }
-    .ndvi-bar  { background:linear-gradient(to right,#8B2500,#D2691E,#F5DEB3,#90EE90,#228B22,#004d00); }
-    .lst-bar   { background:linear-gradient(to right,#313695,#74add1,#ffffbf,#f46d43,#a50026); }
-    .scale-labels { display:flex; justify-content:space-between; font-size:8px; color:var(--text-muted); }
-    #ndvi-scale, #lst-scale { display:none; }
-    #ndvi-scale.visible, #lst-scale.visible { display:block; }
+    /* ── BIOME INFO PANEL — fixed bottom-left, info only, no CTA ── */
+    #biome-panel{
+      position:absolute;bottom:24px;left:24px;width:272px;
+      background:var(--surface);border:1px solid var(--border-light);
+      box-shadow:0 16px 48px rgba(0,0,0,0.65);
+      opacity:0;pointer-events:none;
+      transform:translateY(8px);
+      transition:opacity 0.18s ease,transform 0.18s ease;
+      z-index:800;
+    }
+    #biome-panel.visible{opacity:1;transform:translateY(0);}
+    .bp-header{padding:11px 14px 9px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:9px;}
+    .bp-swatch{width:9px;height:9px;border-radius:2px;flex-shrink:0;margin-top:4px;}
+    .bp-name{font-family:var(--font-display);font-size:14px;color:var(--text);line-height:1.2;}
+    .bp-risk{font-family:var(--font-mono);font-size:8px;letter-spacing:0.13em;text-transform:uppercase;margin-top:3px;}
+    .bp-risk.danger{color:var(--accent-danger);}
+    .bp-risk.warm{color:var(--accent-warm);}
+    .bp-risk.cool{color:var(--accent);}
+    .bp-body{padding:10px 14px 13px;}
+    .bp-intro{font-family:var(--font-body);font-size:10.5px;color:rgba(226,232,240,0.58);line-height:1.6;font-weight:300;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+    /* subtle "click the map" reminder inside panel */
+    .bp-hint{
+      display:flex;align-items:center;gap:7px;
+      margin-top:10px;padding:6px 8px;
+      border-top:1px dashed var(--border);
+      font-family:var(--font-mono);font-size:8px;letter-spacing:0.1em;text-transform:uppercase;
+      color:var(--text-dim);
+    }
+    .bp-hint-arrow{font-size:10px;color:var(--accent);opacity:0.6;}
 
-    /* status */
-    #tile-status { font-size:9px; color:var(--text-muted); margin-top:6px; min-height:14px; letter-spacing:0.05em; }
+    /* ── CURSOR CLICK BADGE — follows mouse over biome ── */
+    #click-badge{
+      position:fixed;
+      pointer-events:none;
+      z-index:950;
+      opacity:0;
+      transition:opacity 0.15s;
+      transform:translate(14px, 14px);
+    }
+    #click-badge.visible{opacity:1;}
+    .cb-inner{
+      display:flex;align-items:center;gap:6px;
+      background:var(--accent);
+      color:#0a0f1a;
+      font-family:var(--font-mono);font-size:9px;font-weight:500;
+      letter-spacing:0.12em;text-transform:uppercase;
+      padding:5px 10px 5px 8px;
+      border-radius:2px;
+      white-space:nowrap;
+      box-shadow:0 4px 16px rgba(0,0,0,0.5);
+      animation:badge-bob 1.6s ease-in-out infinite;
+    }
+    .cb-dot{width:5px;height:5px;border-radius:50%;background:#0a0f1a;flex-shrink:0;}
+    @keyframes badge-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
 
-    /* tooltip */
-    #tooltip { position:fixed; background:var(--surface); border:1px solid var(--border); pointer-events:none; opacity:0; transition:opacity 0.1s; z-index:1000; min-width:190px; max-width:260px; box-shadow:0 8px 32px rgba(0,0,0,0.5); }
-    #tooltip.visible { opacity:1; }
-    .tt-header { padding:8px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
-    .tt-swatch { width:10px; height:10px; border-radius:2px; }
-    .tt-biome-name { font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; }
-    .tt-body { padding:8px 12px; }
-    .tt-row { display:flex; justify-content:space-between; padding:2px 0; gap:12px; }
-    .tt-key { font-size:9px; color:var(--text-muted); letter-spacing:0.1em; text-transform:uppercase; flex-shrink:0; }
-    .tt-val { font-size:10px; color:var(--text); text-align:right; }
-    .tt-divider { border-top:1px dashed var(--border); margin:5px 0; }
+    .click-hint{position:absolute;bottom:24px;right:16px;font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;pointer-events:none;animation:pulse-hint 2s ease-in-out infinite;}
+    @keyframes pulse-hint{0%,100%{opacity:0.4}50%{opacity:0.9}}
+    #zoom-indicator{position:absolute;top:14px;left:16px;font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;pointer-events:none;}
+    #loading{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:100;}
+    .loading-text{font-family:var(--font-mono);font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--text-muted);}
+    .loading-bar{width:160px;height:1px;background:var(--border);position:relative;overflow:hidden;}
+    .loading-bar::after{content:'';position:absolute;left:-50%;width:50%;height:100%;background:var(--accent);animation:sweep 1s ease-in-out infinite;}
+    @keyframes sweep{0%{left:-50%}100%{left:150%}}
 
-    #zoom-indicator { position:absolute; bottom:14px; left:16px; font-size:9px; color:var(--text-muted); letter-spacing:0.12em; text-transform:uppercase; pointer-events:none; }
-    #loading { position:absolute; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:100; }
-    .loading-text { font-size:10px; letter-spacing:0.3em; text-transform:uppercase; color:var(--text-muted); }
-    .loading-bar { width:160px; height:2px; background:var(--border); position:relative; overflow:hidden; }
-    .loading-bar::after { content:''; position:absolute; left:-50%; width:50%; height:100%; background:var(--accent); animation:sweep 1s ease-in-out infinite; }
-    @keyframes sweep { 0%{left:-50%} 100%{left:150%} }
-    ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+    /* ══ SCROLLY VIEW ══════════════════════════════════════ */
+    #view-scrolly{display:none;position:fixed;inset:0;z-index:200;background:var(--bg);}
+    #view-scrolly.active{display:block;}
+    #scroll-driver{position:absolute;inset:0;overflow-y:scroll;z-index:10;background:transparent;}
+    #scroll-spacer{width:100%;pointer-events:none;}
+    #scroll-stage{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
+    .stage-bg{position:absolute;inset:0;opacity:0;transition:opacity 0.9s cubic-bezier(0.4,0,0.2,1);background-size:cover;background-position:center;}
+    .stage-bg.active{opacity:1;}
+    #stage-vignette{position:absolute;inset:0;background:linear-gradient(to right, rgba(10,15,26,0.85) 0%, rgba(10,15,26,0.3) 55%, rgba(10,15,26,0.1) 100%),linear-gradient(to top, rgba(10,15,26,0.7) 0%, transparent 40%);z-index:2;}
+    .scroll-panel{position:absolute;top:0;bottom:0;left:0;width:min(560px, 55vw);display:flex;flex-direction:column;justify-content:center;padding:100px 64px 80px;z-index:3;pointer-events:none;opacity:0;transform:translateX(-28px);transition:opacity 0.65s cubic-bezier(0.16,1,0.3,1), transform 0.65s cubic-bezier(0.16,1,0.3,1);}
+    .scroll-panel.active{opacity:1;transform:translateX(0);pointer-events:auto;}
+    .scroll-panel.exit-left{opacity:0;transform:translateX(28px);transition:opacity 0.4s ease, transform 0.4s ease;}
+    .panel-chapter-num{position:absolute;right:-20px;top:50%;transform:translateY(-50%) rotate(90deg);font-family:var(--font-mono);font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:rgba(56,189,248,0.18);white-space:nowrap;}
+    .panel-eyebrow{font-family:var(--font-mono);font-size:8px;letter-spacing:0.28em;text-transform:uppercase;color:var(--accent);margin-bottom:16px;display:flex;align-items:center;gap:12px;}
+    .panel-eyebrow::before{content:'';display:inline-block;width:24px;height:1px;background:rgba(56,189,248,0.5);}
+    .panel-title{font-family:var(--font-display);font-size:clamp(28px,3.8vw,52px);font-weight:400;color:var(--text);line-height:1.05;margin-bottom:20px;}
+    .panel-body{font-family:var(--font-body);font-size:14px;line-height:1.82;color:rgba(226,232,240,0.72);font-weight:300;max-width:440px;}
+    .panel-body+.panel-body{margin-top:12px;}
+    .panel-stats{display:flex;gap:0;margin-top:28px;border:1px solid var(--border);}
+    .panel-stat{flex:1;padding:14px 16px;border-right:1px solid var(--border);}
+    .panel-stat:last-child{border-right:none;}
+    .panel-stat-val{font-family:var(--font-display);font-size:22px;color:var(--text);line-height:1;}
+    .panel-stat-val.danger{color:var(--accent-danger);}
+    .panel-stat-val.warm{color:var(--accent-warm);}
+    .panel-stat-val.cool{color:var(--accent);}
+    .panel-stat-label{font-family:var(--font-mono);font-size:7px;color:var(--text-muted);letter-spacing:0.13em;text-transform:uppercase;margin-top:4px;line-height:1.4;}
+    .panel-callout{border-left:2px solid var(--accent-warm);padding:14px 20px;margin-top:24px;background:rgba(245,158,11,0.04);}
+    .panel-callout-text{font-family:var(--font-display);font-style:italic;font-size:16px;color:var(--text);line-height:1.5;}
+    .panel-timeline{margin-top:24px;display:flex;flex-direction:column;gap:0;}
+    .ptl-item{display:flex;gap:16px;padding-bottom:20px;position:relative;}
+    .ptl-item:last-child{padding-bottom:0;}
+    .ptl-left{display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0;width:2px;}
+    .ptl-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-left:-3px;}
+    .ptl-dot.danger{background:var(--accent-danger);}
+    .ptl-line{flex:1;width:1px;background:var(--border);margin-top:4px;}
+    .ptl-item:last-child .ptl-line{display:none;}
+    .ptl-right{padding-top:0;}
+    .ptl-date{font-family:var(--font-mono);font-size:8px;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);margin-bottom:4px;}
+    .ptl-title{font-family:var(--font-display);font-size:15px;color:var(--text);margin-bottom:4px;}
+    .ptl-body{font-family:var(--font-body);font-size:11px;color:var(--text-muted);line-height:1.65;font-weight:300;}
+    .panel-res-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px;}
+    .panel-res-card{background:rgba(255,255,255,0.03);border:1px solid var(--border);padding:14px 16px;}
+    .panel-res-title{font-family:var(--font-mono);font-size:7px;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+    .panel-res-body{font-family:var(--font-body);font-size:11px;color:var(--text-muted);line-height:1.55;font-weight:300;}
+    .stage-right{position:absolute;right:0;top:0;bottom:0;width:38vw;display:flex;align-items:center;justify-content:center;padding:100px 48px 80px;z-index:3;pointer-events:none;}
+    .stage-right-inner{opacity:0;transform:translateX(24px);transition:opacity 0.65s 0.15s cubic-bezier(0.16,1,0.3,1), transform 0.65s 0.15s cubic-bezier(0.16,1,0.3,1);width:100%;}
+    .stage-right-inner.active{opacity:1;transform:translateX(0);}
+    .panel-viz-ph{background:rgba(255,255,255,0.03);border:1px dashed var(--border-light);min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:var(--font-mono);font-size:8px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-dim);padding:32px;text-align:center;}
+    .panel-viz-title{color:var(--text-muted);font-size:9px;}
+    #chapter-progress{position:absolute;right:28px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;align-items:center;z-index:20;}
+    .cp-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.15);cursor:pointer;transition:background 0.3s,transform 0.3s,height 0.3s;}
+    .cp-dot.active{background:var(--accent);transform:scale(1.3);}
+    .cp-dot:hover{background:rgba(56,189,248,0.5);}
+    #scroll-progress-bar{position:absolute;top:0;left:0;height:2px;background:var(--accent);z-index:25;width:0%;transition:width 0.1s linear;}
+    .scrolly-return-bar{position:absolute;top:0;left:0;right:0;z-index:20;background:rgba(10,15,26,0.6);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:space-between;padding:10px 28px;}
+    .return-btn{display:flex;align-items:center;gap:8px;background:transparent;border:1px solid var(--border);color:var(--text-muted);font-family:var(--font-mono);font-size:9px;letter-spacing:0.15em;text-transform:uppercase;padding:6px 14px;cursor:pointer;transition:all 0.15s;pointer-events:auto;}
+    .return-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .scrolly-biome-badge{display:flex;align-items:center;gap:10px;}
+    .scrolly-biome-dot{width:8px;height:8px;border-radius:50%;}
+    .scrolly-biome-label{font-family:var(--font-mono);font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-muted);}
+    #chapter-label{position:absolute;bottom:28px;right:48px;font-family:var(--font-mono);font-size:8px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(56,189,248,0.4);z-index:20;transition:opacity 0.3s;}
+    #scroll-cue{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:5px;z-index:20;opacity:0.55;transition:opacity 0.4s;pointer-events:none;}
+    #scroll-cue.hide{opacity:0;}
+    .scroll-cue-line{width:1px;height:28px;background:var(--accent);animation:cue-drop 1.4s ease-in-out infinite;}
+    .scroll-cue-label{font-family:var(--font-mono);font-size:8px;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);}
+    @keyframes cue-drop{0%,100%{transform:scaleY(0.2);opacity:0.2}50%{transform:scaleY(1);opacity:1}}
+    #transition-overlay{position:fixed;inset:0;background:var(--bg);z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.3s ease;}
+    #transition-overlay.fade-in{opacity:1;pointer-events:all;}
+    ::-webkit-scrollbar{width:7px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+    /* map cursor when hovering biome */
+    #map-container.hovering-biome{cursor:pointer;}
   </style>
 </head>
 <body>
+<div id="transition-overlay"></div>
 
-<header>
-  <div class="header-title">
-    <h1>World Biome Map</h1>
-    <p>Ecological biome boundaries · NASA MODIS overlay</p>
-  </div>
-  <div class="header-controls">
-    <button class="control-btn active" id="btn-natural" onclick="setProjection('naturalEarth')">Natural Earth</button>
-    <button class="control-btn" id="btn-mercator" onclick="setProjection('mercator')">Mercator</button>
-    <button class="control-btn" id="btn-reset" onclick="resetZoom()">Reset</button>
-  </div>
-</header>
-
-<div class="main">
-  <div id="map-container">
-    <div id="loading"><div class="loading-bar"></div><div class="loading-text">Loading biome data…</div></div>
-    <svg id="map"></svg>
-    <div id="zoom-indicator">Zoom: 1.0×</div>
-  </div>
-
-  <div id="sidebar">
-    <!-- Year scrubber -->
-    <div class="sidebar-section">
-      <div class="sidebar-label">Year</div>
-      <div id="year-display">2015</div>
-      <input type="range" id="year-slider" min="2001" max="2023" value="2015" step="1"/>
-      <div class="year-range"><span>2001</span><span>2023</span></div>
-      <button id="play-btn" onclick="togglePlay()">▶ Play</button>
+<!-- ══ MAP VIEW ══════════════════════════════════════════ -->
+<div id="view-map">
+  <header>
+    <div class="header-title">
+      <h1>Anatomy of a Drought</h1>
+      <p>World biome map · drought vulnerability explorer</p>
     </div>
+    <div class="header-controls">
+      <button class="control-btn active" id="btn-natural" onclick="setProjection('naturalEarth')">Natural Earth</button>
+      <button class="control-btn" id="btn-mercator" onclick="setProjection('mercator')">Mercator</button>
+      <button class="control-btn" id="btn-reset" onclick="resetZoom()">Reset</button>
+    </div>
+  </header>
+  <div class="main">
+    <div id="map-container">
+      <div id="loading"><div class="loading-bar"></div><div class="loading-text">Loading biome data…</div></div>
+      <svg id="map"></svg>
+      <div id="zoom-indicator">Zoom: 1.0×</div>
 
-    <!-- NASA layers -->
-    <div class="sidebar-section">
-      <div class="sidebar-label">NASA Layers</div>
-      <div class="nasa-layer-item">
-        <span class="nasa-layer-label">NDVI Vegetation</span>
-        <div class="layer-toggle" id="toggle-ndvi" onclick="toggleLayer('ndvi',this)"></div>
-      </div>
-      <div class="nasa-layer-item">
-        <span class="nasa-layer-label">Land Surface Temp</span>
-        <div class="layer-toggle" id="toggle-lst" onclick="toggleLayer('lst',this)"></div>
-      </div>
-      <div id="tile-status"></div>
-
-      <div id="ndvi-scale">
-        <div class="scale-bar ndvi-bar"></div>
-        <div class="scale-labels"><span>Low NDVI</span><span>High NDVI</span></div>
-      </div>
-      <div id="lst-scale">
-        <div class="scale-bar lst-bar"></div>
-        <div class="scale-labels"><span>Cold</span><span>Hot</span></div>
+      <!-- Biome info panel — info only, no button -->
+      <div id="biome-panel">
+        <div class="bp-header">
+          <div class="bp-swatch" id="bp-swatch"></div>
+          <div>
+            <div class="bp-name" id="bp-name"></div>
+            <div class="bp-risk" id="bp-risk"></div>
+          </div>
+        </div>
+        <div class="bp-body">
+          <div class="bp-intro" id="bp-intro"></div>
+          <div class="bp-hint">
+            <span class="bp-hint-arrow">↑</span>
+            click the biome to explore its drought story
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Biome legend -->
-    <div class="sidebar-section">
-      <div class="sidebar-label">Biomes</div>
-      <div id="legend"></div>
-    </div>
-
-    <div class="sidebar-section">
-      <div style="font-size:10px;color:var(--text-muted);line-height:1.6;">
-        Hover a region for details.<br>Scroll to zoom · Drag to pan.<br>
-        Toggle NASA layers to overlay real MODIS satellite data.<br><br>
-        Biome boundaries from Whittaker (1975).
+    <div id="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Year</div>
+        <div id="year-display">2015</div>
+        <input type="range" id="year-slider" min="2001" max="2023" value="2015" step="1"/>
+        <div class="year-range"><span>2001</span><span>2023</span></div>
+        <button id="play-btn" onclick="togglePlay()">▶ Play</button>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">NASA Layers</div>
+        <div class="nasa-layer-item">
+          <span class="nasa-layer-label">NDVI Vegetation</span>
+          <div class="layer-toggle" id="toggle-ndvi" onclick="toggleLayer('ndvi',this)"></div>
+        </div>
+        <div class="nasa-layer-item">
+          <span class="nasa-layer-label">Land Surface Temp</span>
+          <div class="layer-toggle" id="toggle-lst" onclick="toggleLayer('lst',this)"></div>
+        </div>
+        <div id="tile-status"></div>
+        <div id="ndvi-scale"><div class="scale-bar ndvi-bar"></div><div class="scale-labels"><span>Low NDVI</span><span>High NDVI</span></div></div>
+        <div id="lst-scale"><div class="scale-bar lst-bar"></div><div class="scale-labels"><span>Cold</span><span>Hot</span></div></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Biomes — hover to highlight</div>
+        <div id="legend"></div>
+      </div>
+      <div class="sidebar-section">
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);line-height:1.7;">
+          Hover any region to preview.<br>
+          <strong style="color:var(--accent)">Click</strong> to open its drought story.<br><br>
+          Scroll to zoom · Drag to pan.
+        </div>
       </div>
     </div>
   </div>
 </div>
 
+<!-- ── Cursor click badge (follows mouse, shows over biome) ── -->
+<div id="click-badge">
+  <div class="cb-inner">
+    <div class="cb-dot"></div>
+    <span id="cb-label">Click to explore</span>
+  </div>
+</div>
+
+<!-- ── TOOLTIP ── -->
 <div id="tooltip">
   <div class="tt-header">
     <div class="tt-swatch" id="tt-swatch"></div>
@@ -186,28 +349,70 @@
   </div>
 </div>
 
+<!-- ══ SCROLLY VIEW ════════════════════════════════════ -->
+<div id="view-scrolly">
+  <div id="scroll-progress-bar"></div>
+  <div class="scrolly-return-bar">
+    <button class="return-btn" onclick="closeScrolly()">
+      <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M10 6H2M6 10L2 6l4-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Back to world map
+    </button>
+    <div class="scrolly-biome-badge">
+      <div class="scrolly-biome-dot" id="scrolly-dot"></div>
+      <span class="scrolly-biome-label" id="scrolly-label"></span>
+    </div>
+    <div style="width:80px"></div>
+  </div>
+  <div id="scroll-stage">
+    <div id="stage-vignette"></div>
+    <div id="stage-bgs"></div>
+    <div id="stage-panels"></div>
+    <div id="stage-rights"></div>
+  </div>
+  <div id="chapter-progress"></div>
+  <div id="chapter-label"></div>
+  <div id="scroll-cue">
+    <div class="scroll-cue-line"></div>
+    <div class="scroll-cue-label">Scroll</div>
+  </div>
+  <div id="scroll-driver">
+    <div id="scroll-spacer"></div>
+  </div>
+</div>
+
 <script>
-/* ── Biome data ── */
+/* ══════════════════════════════════════════════════════════
+   BIOME DATA
+══════════════════════════════════════════════════════════ */
 const BIOMES = {
-  "Tropical Rainforest":       {color:"#1a7a3c",climate:"Tropical wet",         precip:"2000–4000 mm/yr",temp:"20–28 °C",ndvi:[0.72,0.90],lst:[24,30],regions:[[-10,-80,10,-35],[-5,8,5,45],[-10,100,10,150]]},
-  "Tropical Seasonal Forest":  {color:"#4caf50",climate:"Tropical seasonal",     precip:"1000–2000 mm/yr",temp:"20–30 °C",ndvi:[0.50,0.75],lst:[26,34],regions:[[10,-80,25,-60],[-25,-60,-10,-35],[10,65,25,90]]},
-  "Subtropical Desert":        {color:"#e8c56d",climate:"Arid / hot desert",     precip:"<250 mm/yr",     temp:"15–45 °C",ndvi:[0.04,0.18],lst:[36,55],regions:[[15,-20,35,60],[20,60,35,75],[-35,115,-20,135],[25,-120,35,-105]]},
-  "Mediterranean Shrubland":   {color:"#c8a44e",climate:"Mediterranean",         precip:"300–700 mm/yr",  temp:"10–22 °C",ndvi:[0.28,0.55],lst:[18,32],regions:[[35,-10,45,40],[30,-120,40,-115],[-37,115,-30,135],[-40,-75,-30,-65]]},
-  "Temperate Grassland":       {color:"#8bc34a",climate:"Semi-arid continental", precip:"250–750 mm/yr",  temp:"-5–25 °C",ndvi:[0.22,0.50],lst:[10,28],regions:[[45,50,55,90],[25,-105,50,-85],[-40,-65,-25,-45]]},
-  "Temperate Deciduous Forest":{color:"#558b2f",climate:"Temperate humid",       precip:"700–1500 mm/yr", temp:"-5–20 °C",ndvi:[0.50,0.75],lst:[8,22], regions:[[40,-90,55,-65],[45,5,60,30],[30,110,45,145]]},
-  "Temperate Rainforest":      {color:"#2e7d32",climate:"Cool temperate wet",    precip:"1400–3000 mm/yr",temp:"4–12 °C", ndvi:[0.60,0.85],lst:[6,14], regions:[[45,-130,60,-120],[-50,-80,-35,-72],[-45,165,-38,175]]},
-  "Boreal Forest / Taiga":     {color:"#37474f",climate:"Subarctic",             precip:"200–750 mm/yr",  temp:"-40–15 °C",ndvi:[0.28,0.58],lst:[-10,12],regions:[[55,-140,70,-60],[55,30,70,140],[60,5,70,30]]},
-  "Tundra":                    {color:"#90a4ae",climate:"Polar / subpolar",      precip:"150–500 mm/yr",  temp:"-30–5 °C",ndvi:[0.08,0.32],lst:[-20,5], regions:[[68,-180,80,180],[-80,-180,-60,180]]},
-  "Ice / Polar Desert":        {color:"#cfd8dc",climate:"Polar ice",             precip:"<200 mm/yr",     temp:"-60 to -10 °C",ndvi:[0.0,0.04],lst:[-50,-10],regions:[[80,-180,90,180],[-90,-180,-78,180]]},
-  "Montane / Alpine":          {color:"#78909c",climate:"High-altitude",         precip:"400–1500 mm/yr", temp:"-10–10 °C",ndvi:[0.18,0.48],lst:[-5,10],regions:[[27,75,42,95],[35,-115,50,-100],[-20,-75,5,-65],[45,6,48,15]]},
-  "Mangrove":                  {color:"#00695c",climate:"Tropical coastal",      precip:"1200–3000 mm/yr",temp:"20–30 °C",ndvi:[0.60,0.85],lst:[22,30],regions:[[5,95,15,110],[-5,35,5,42],[5,-80,12,-60]]},
-  "Flooded Grassland":         {color:"#00acc1",climate:"Subtropical wetland",   precip:"1000–2000 mm/yr",temp:"15–30 °C",ndvi:[0.38,0.62],lst:[18,28],regions:[[-22,-60,-15,-50],[5,25,15,35]]},
+  "Tropical Rainforest":       {color:"#1a7a3c",heroColor:"#0d3d1f",bgGradient:"linear-gradient(135deg,#0a2e14 0%,#1a5c2a 40%,#0d3d1f 100%)",climate:"Tropical wet",precip:"2000–4000 mm/yr",temp:"20–28 °C",ndvi:[0.72,0.90],lst:[24,30],droughtRisk:"Moderate & Rising",droughtRiskClass:"danger",area:"~7M km²",coverage:"~6% of land",droughtIntro:"Tropical rainforests — the lungs of the Earth — now face an unprecedented threat: moisture deficits driven by deforestation feedback loops, El Niño intensification, and altered atmospheric circulation patterns.",regions:[[-10,-80,10,-35],[-5,8,5,45],[-10,100,10,150]]},
+  "Tropical Seasonal Forest":  {color:"#4caf50",heroColor:"#1a3d1a",bgGradient:"linear-gradient(135deg,#0f2d10 0%,#2d6b30 40%,#1a3d1a 100%)",climate:"Tropical seasonal",precip:"1000–2000 mm/yr",temp:"20–30 °C",ndvi:[0.50,0.75],lst:[26,34],droughtRisk:"High",droughtRiskClass:"danger",area:"~7.5M km²",coverage:"~5% of land",droughtIntro:"Tropical seasonal forests rely on a delicate wet-dry cycle. As dry seasons intensify under climate change, these forests face mounting stress — tree mortality, fire risk, and biodiversity collapse.",regions:[[10,-80,25,-60],[-25,-60,-10,-35],[10,65,25,90]]},
+  "Subtropical Desert":        {color:"#e8c56d",heroColor:"#3d2e0a",bgGradient:"linear-gradient(135deg,#2e1f04 0%,#5c3d0a 40%,#8a5c10 100%)",climate:"Arid / hot desert",precip:"<250 mm/yr",temp:"15–45 °C",ndvi:[0.04,0.18],lst:[36,55],droughtRisk:"Extreme",droughtRiskClass:"danger",area:"~19M km²",coverage:"~14% of land",droughtIntro:"Already the driest places on Earth, subtropical deserts are expanding at their margins, consuming adjacent grasslands and pushing human populations toward permanent water crisis.",regions:[[15,-20,35,60],[20,60,35,75],[-35,115,-20,135],[25,-120,35,-105]]},
+  "Mediterranean Shrubland":   {color:"#c8a44e",heroColor:"#3d2e0a",bgGradient:"linear-gradient(135deg,#2a1f08 0%,#5c4214 40%,#7a5a20 100%)",climate:"Mediterranean",precip:"300–700 mm/yr",temp:"10–22 °C",ndvi:[0.28,0.55],lst:[18,32],droughtRisk:"Very High",droughtRiskClass:"warm",area:"~2.8M km²",coverage:"~2% of land",droughtIntro:"Mediterranean climates experience summer dry seasons by design. Climate change is extending those seasons and intensifying the fire weather that follows.",regions:[[35,-10,45,40],[30,-120,40,-115],[-37,115,-30,135],[-40,-75,-30,-65]]},
+  "Temperate Grassland":       {color:"#8bc34a",heroColor:"#1a2d0a",bgGradient:"linear-gradient(135deg,#0f1f06 0%,#2d4a14 40%,#1a2d0a 100%)",climate:"Semi-arid continental",precip:"250–750 mm/yr",temp:"-5–25 °C",ndvi:[0.22,0.50],lst:[10,28],droughtRisk:"High",droughtRiskClass:"warm",area:"~9M km²",coverage:"~7% of land",droughtIntro:"The world's breadbaskets — the Great Plains, Eurasian steppes, Pampas — are grasslands under pressure. Multi-year droughts like the 1930s Dust Bowl may become the new normal.",regions:[[45,50,55,90],[25,-105,50,-85],[-40,-65,-25,-45]]},
+  "Temperate Deciduous Forest":{color:"#558b2f",heroColor:"#0f2208",bgGradient:"linear-gradient(135deg,#091608 0%,#1e4010 40%,#0f2208 100%)",climate:"Temperate humid",precip:"700–1500 mm/yr",temp:"-5–20 °C",ndvi:[0.50,0.75],lst:[8,22],droughtRisk:"Moderate",droughtRiskClass:"cool",area:"~10M km²",coverage:"~7% of land",droughtIntro:"Temperate deciduous forests have historically been buffered by reliable seasonal rain. But warming summers and erratic precipitation are tipping the stress balance — drought-related die-offs accelerate.",regions:[[40,-90,55,-65],[45,5,60,30],[30,110,45,145]]},
+  "Temperate Rainforest":      {color:"#2e7d32",heroColor:"#0a1f0d",bgGradient:"linear-gradient(135deg,#061409 0%,#143d18 40%,#0a2810 100%)",climate:"Cool temperate wet",precip:"1400–3000 mm/yr",temp:"4–12 °C",ndvi:[0.60,0.85],lst:[6,14],droughtRisk:"Low–Moderate",droughtRiskClass:"cool",area:"~0.5M km²",coverage:"<1% of land",droughtIntro:"The rarest forest type on Earth depends on persistent fog and rainfall. Reduced coastal fog linked to ocean warming is drying these ecosystems in ways scientists did not anticipate.",regions:[[45,-130,60,-120],[-50,-80,-35,-72],[-45,165,-38,175]]},
+  "Boreal Forest / Taiga":     {color:"#37474f",heroColor:"#101a1f",bgGradient:"linear-gradient(135deg,#080f14 0%,#1a2d38 40%,#0f1e28 100%)",climate:"Subarctic continental",precip:"200–750 mm/yr",temp:"-40–15 °C",ndvi:[0.28,0.58],lst:[-10,12],droughtRisk:"Rapidly Increasing",droughtRiskClass:"danger",area:"~17M km²",coverage:"~12% of land",droughtIntro:"The boreal forest is the world's largest terrestrial biome and a massive carbon sink — now warming 2–3× the global average, triggering mega-fires that convert it from carbon sink to carbon source.",regions:[[55,-140,70,-60],[55,30,70,140],[60,5,70,30]]},
+  "Tundra":                    {color:"#90a4ae",heroColor:"#131a1f",bgGradient:"linear-gradient(135deg,#0d1318 0%,#243540 40%,#131a22 100%)",climate:"Polar / subpolar",precip:"150–500 mm/yr",temp:"-30–5 °C",ndvi:[0.08,0.32],lst:[-20,5],droughtRisk:"Permafrost Collapse",droughtRiskClass:"danger",area:"~11M km²",coverage:"~8% of land",droughtIntro:"Drought here manifests paradoxically: permafrost thaw drains moisture from above, creating drier surface soils even as ice below melts — releasing stored methane and CO₂ at alarming rates.",regions:[[68,-180,80,180],[-80,-180,-60,180]]},
+  "Ice / Polar Desert":        {color:"#cfd8dc",heroColor:"#101418",bgGradient:"linear-gradient(135deg,#0a0e12 0%,#1e2a34 40%,#101820 100%)",climate:"Polar ice",precip:"<200 mm/yr",temp:"-60 to -10 °C",ndvi:[0.0,0.04],lst:[-50,-10],droughtRisk:"Melt-Driven Loss",droughtRiskClass:"danger",area:"~14M km²",coverage:"~10% of land",droughtIntro:"Accelerating melt driven by atmospheric warming constitutes a permanent, catastrophic depletion of the world's largest freshwater reserves.",regions:[[80,-180,90,180],[-90,-180,-78,180]]},
+  "Montane / Alpine":          {color:"#78909c",heroColor:"#131820",bgGradient:"linear-gradient(135deg,#0d1218 0%,#243040 40%,#131820 100%)",climate:"High-altitude variable",precip:"400–1500 mm/yr",temp:"-10–10 °C",ndvi:[0.18,0.48],lst:[-5,10],droughtRisk:"Snowpack Collapse",droughtRiskClass:"warm",area:"~10M km²",coverage:"~7% of land",droughtIntro:"Mountain ecosystems act as water towers for billions downstream. As warming shifts precipitation from snow to rain and shrinks glaciers, seasonal water availability is fundamentally disrupted.",regions:[[27,75,42,95],[35,-115,50,-100],[-20,-75,5,-65],[45,6,48,15]]},
+  "Mangrove":                  {color:"#00695c",heroColor:"#0a1f1c",bgGradient:"linear-gradient(135deg,#061410 0%,#0f3028 40%,#0a2020 100%)",climate:"Tropical coastal",precip:"1200–3000 mm/yr",temp:"20–30 °C",ndvi:[0.60,0.85],lst:[22,30],droughtRisk:"Salinity Stress",droughtRiskClass:"warm",area:"~0.15M km²",coverage:"<0.1% of land",droughtIntro:"Mangroves buffer coastlines, filter water, and store carbon far exceeding their small footprint. Drought-driven salinity spikes combined with sea level rise are causing rapid dieback.",regions:[[5,95,15,110],[-5,35,5,42],[5,-80,12,-60]]},
+  "Flooded Grassland":         {color:"#00acc1",heroColor:"#0a1f22",bgGradient:"linear-gradient(135deg,#061418 0%,#0f2e38 40%,#0a2028 100%)",climate:"Subtropical wetland",precip:"1000–2000 mm/yr",temp:"15–30 °C",ndvi:[0.38,0.62],lst:[18,28],droughtRisk:"Drying Wetlands",droughtRiskClass:"warm",area:"~1M km²",coverage:"<1% of land",droughtIntro:"Flooded grasslands like the Pantanal and Sahel wetlands depend on reliable seasonal flooding. Extended droughts collapse these ecosystems, releasing stored carbon from ancient peat soils.",regions:[[-22,-60,-15,-50],[5,25,15,35]]},
 };
 
-function classifyBiome(lon,lat) {
-  for (const [name,def] of Object.entries(BIOMES))
-    for (const [minLat,minLon,maxLat,maxLon] of def.regions)
-      if (lat>=minLat&&lat<=maxLat&&lon>=minLon&&lon<=maxLon) return name;
+const BIOME_NDVI = {
+  "Tropical Rainforest":[0.82,-0.003],"Tropical Seasonal Forest":[0.65,-0.004],
+  "Subtropical Desert":[0.08,0.001],"Mediterranean Shrubland":[0.42,-0.003],
+  "Temperate Grassland":[0.38,-0.002],"Temperate Deciduous Forest":[0.62,-0.002],
+  "Temperate Rainforest":[0.75,-0.002],"Boreal Forest / Taiga":[0.48,-0.003],
+  "Tundra":[0.22,-0.004],"Ice / Polar Desert":[0.02,0.000],
+  "Montane / Alpine":[0.35,-0.002],"Mangrove":[0.72,-0.003],"Flooded Grassland":[0.52,-0.002],
+};
+
+function classifyBiome(lon,lat){
+  for(const [name,def] of Object.entries(BIOMES))
+    for(const [minLat,minLon,maxLat,maxLon] of def.regions)
+      if(lat>=minLat&&lat<=maxLat&&lon>=minLon&&lon<=maxLon) return name;
   const a=Math.abs(lat);
   if(a>80) return "Ice / Polar Desert";
   if(a>68) return "Tundra";
@@ -219,377 +424,260 @@ function classifyBiome(lon,lat) {
   return "Tropical Rainforest";
 }
 
-/* ── State ── */
+/* ══════════════════════════════════════════════════════════
+   MAP STATE
+══════════════════════════════════════════════════════════ */
 let svg,g,path,projection,zoom;
 let currentProjection='naturalEarth';
 let currentYear=2015;
 let activeLayer=null;
 let playInterval=null;
 const tooltip=document.getElementById('tooltip');
+const biomePanel=document.getElementById('biome-panel');
+const clickBadge=document.getElementById('click-badge');
+const cbLabel=document.getElementById('cb-label');
 
-/* ── Preload cache ── */
-const imageCache = { ndvi:{}, lst:{} };
-const YEARS = Array.from({length:23},(_,i)=>2001+i);
-const IMG_W=1024, IMG_H=512;
-const MIN_LAT=-60, MAX_LAT=90;
+/* ── PANEL — purely informational, no lock logic needed ── */
+let panelHideTimer=null;
+let currentHoveredBiome=null;
 
-function preloadAll() {
-  // do nothing on startup — preload lazily when layer is toggled
+function showBiomePanel(biomeName){
+  clearTimeout(panelHideTimer);
+  if(currentHoveredBiome===biomeName) return;
+  currentHoveredBiome=biomeName;
+  const biome=BIOMES[biomeName];if(!biome) return;
+  document.getElementById('bp-swatch').style.background=biome.color;
+  document.getElementById('bp-name').textContent=biomeName;
+  const riskEl=document.getElementById('bp-risk');
+  riskEl.textContent=biome.droughtRisk;
+  riskEl.className='bp-risk '+biome.droughtRiskClass;
+  document.getElementById('bp-intro').textContent=biome.droughtIntro;
+  biomePanel.classList.add('visible');
 }
 
-function preloadLayer(layer) {
-  const validYears = getYearsForLayer(layer);
-  const sorted = [...validYears].sort((a,b) => Math.abs(a-currentYear) - Math.abs(b-currentYear));
-  let delay = 0;
-  for (const year of sorted) {
-    setTimeout(() => preloadOne(layer, year), delay);
-    delay += 150;
-  }
+function schedulePanelHide(){
+  panelHideTimer=setTimeout(()=>{
+    biomePanel.classList.remove('visible');
+    currentHoveredBiome=null;
+  },400);
 }
 
-function preloadOne(layer, year) {
-  if (imageCache[layer][year] !== undefined) return;
-  imageCache[layer][year] = null;
-  const bbox=`-180,${MIN_LAT},180,${MAX_LAT}`;
-  const url=buildWmsUrl(layer, year, bbox, IMG_W, IMG_H);
-  if (!url) { imageCache[layer][year] = false; return; }
-  const img=new Image();
-  img.crossOrigin='anonymous';
-  img.onload=()=>{
-    const canvas=document.createElement('canvas');
-    canvas.width=IMG_W; canvas.height=IMG_H;
-    const ctx=canvas.getContext('2d', {willReadFrequently: true});
-    ctx.drawImage(img,0,0,IMG_W,IMG_H);
-    imageCache[layer][year]={canvas,ctx};
-    // Sample multiple land pixels for debug
-    const samples = [
-      ctx.getImageData(Math.floor(0.25*IMG_W), Math.floor(0.35*IMG_H), 1,1).data, // USA
-      ctx.getImageData(Math.floor(0.55*IMG_W), Math.floor(0.45*IMG_H), 1,1).data, // Europe
-      ctx.getImageData(Math.floor(0.45*IMG_W), Math.floor(0.55*IMG_H), 1,1).data, // Africa
-    ];
-    console.log(`[NASA] Loaded ${layer} ${year}`, samples.map(s=>`rgba(${s[0]},${s[1]},${s[2]},${s[3]})`));
-    updatePreloadStatus();
-    if (activeLayer===layer && currentYear===year) {
-      applyOverlayFromCache(layer,year);
-      setStatus('');
+/* ── CURSOR BADGE ── */
+function showClickBadge(biomeName,x,y){
+  const biome=BIOMES[biomeName];
+  if(!biome) return;
+  cbLabel.textContent='Click to explore';
+  clickBadge.style.left=x+'px';
+  clickBadge.style.top=y+'px';
+  clickBadge.classList.add('visible');
+}
+function hideClickBadge(){
+  clickBadge.classList.remove('visible');
+}
+
+/* ══════════════════════════════════════════════════════════
+   TOOLTIP
+══════════════════════════════════════════════════════════ */
+function showTooltip(event,biomeName){
+  const biome=BIOMES[biomeName];if(!biome) return;
+  /* position tooltip above-left of badge so they don't overlap */
+  const pad=16;
+  let x=event.clientX-250, y=event.clientY-180;
+  if(x<8) x=event.clientX+pad;
+  if(y<8) y=event.clientY+pad;
+  tooltip.style.left=x+'px';tooltip.style.top=y+'px';
+  document.getElementById('tt-swatch').style.background=biome.color;
+  document.getElementById('tt-biome-name').textContent=biomeName;
+  document.getElementById('tt-climate').textContent=biome.climate;
+  document.getElementById('tt-precip').textContent=biome.precip;
+  document.getElementById('tt-temp').textContent=biome.temp;
+  if(activeLayer){
+    document.getElementById('tt-div').style.display='block';
+    if(activeLayer==='ndvi'&&BIOME_NDVI[biomeName]){
+      document.getElementById('tt-ndvi-row').style.display='flex';
+      document.getElementById('tt-ndvi-val').textContent=getNdviForBiome(biomeName,currentYear).toFixed(3);
     }
+    if(activeLayer==='lst'&&biome.lst){
+      const off=currentYear-2001;
+      document.getElementById('tt-lst-row').style.display='flex';
+      document.getElementById('tt-lst-val').textContent=((biome.lst[0]+biome.lst[1])/2+off*0.02).toFixed(1)+' °C';
+    }
+  } else {
+    document.getElementById('tt-div').style.display='none';
+    document.getElementById('tt-ndvi-row').style.display='none';
+    document.getElementById('tt-lst-row').style.display='none';
+  }
+  tooltip.classList.add('visible');
+}
+function hideTooltip(){tooltip.classList.remove('visible');}
+
+/* ══════════════════════════════════════════════════════════
+   MAP EVENT HANDLERS
+══════════════════════════════════════════════════════════ */
+function handleMouseMove(event,d){
+  const biomeName=this.getAttribute('data-biome');
+  /* move tooltip to upper-left of cursor */
+  showTooltip(event,biomeName);
+  /* move click badge to lower-right of cursor */
+  showClickBadge(biomeName, event.clientX, event.clientY);
+  /* update info panel */
+  showBiomePanel(biomeName);
+  /* highlight */
+  d3.selectAll('.biome').classed('biome-dimmed',true).classed('biome-highlighted',false);
+  d3.selectAll(`.biome[data-biome="${biomeName}"]`).classed('biome-dimmed',false).classed('biome-highlighted',true);
+  /* pointer cursor */
+  document.getElementById('map-container').classList.add('hovering-biome');
+}
+function handleMouseLeave(){
+  hideTooltip();
+  hideClickBadge();
+  schedulePanelHide();
+  d3.selectAll('.biome').classed('biome-dimmed',false).classed('biome-highlighted',false);
+  document.getElementById('map-container').classList.remove('hovering-biome');
+}
+function handleClick(){
+  const name=this.getAttribute('data-biome');
+  if(name) openScrolly(name);
+}
+
+/* ══════════════════════════════════════════════════════════
+   NASA
+══════════════════════════════════════════════════════════ */
+const imageCache={ndvi:{},lst:{}};
+const YEARS=Array.from({length:23},(_,i)=>2001+i);
+const IMG_W=1024,IMG_H=512,MIN_LAT=-60,MAX_LAT=90;
+const GIBS_WMS_URL='https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+const LAYER_IDS={lst:'MODIS_Terra_Land_Surface_Temp_Day'};
+
+function ndviColor(ndvi){
+  const t=Math.max(0,Math.min(1,(ndvi-0.0)/0.9));
+  if(t<0.3){const s=t/0.3;return `rgb(${Math.round(180+75*s)},${Math.round(60+100*s)},30)`;}
+  else if(t<0.6){const s=(t-0.3)/0.3;return `rgb(${Math.round(255-100*s)},${Math.round(160+60*s)},${Math.round(30+20*s)})`;}
+  else{const s=(t-0.6)/0.4;return `rgb(${Math.round(155-120*s)},${Math.round(220-50*s)},${Math.round(50-20*s)})`;}
+}
+function getNdviForBiome(name,year){
+  const p=BIOME_NDVI[name];if(!p) return null;
+  const[base,trend]=p,off=year-2001;
+  const dp=[2002,2005,2010,2012,2015,2016,2020,2021,2022].includes(year)?-0.06:0;
+  return Math.max(0.02,Math.min(0.95,base+trend*off*3+dp));
+}
+function buildWmsUrl(layer,year,bbox,w,h){
+  if(layer==='ndvi') return null;
+  return `${GIBS_WMS_URL}?${new URLSearchParams({SERVICE:'WMS',VERSION:'1.1.1',REQUEST:'GetMap',LAYERS:LAYER_IDS[layer],SRS:'EPSG:4326',BBOX:bbox,WIDTH:w,HEIGHT:h,FORMAT:'image/png',TRANSPARENT:'true',TIME:`${year}-07-12`,STYLES:''}).toString()}`;
+}
+function preloadLayer(layer){
+  const sorted=[...YEARS].sort((a,b)=>Math.abs(a-currentYear)-Math.abs(b-currentYear));
+  let delay=0;
+  for(const yr of sorted){setTimeout(()=>preloadOne(layer,yr),delay);delay+=150;}
+}
+function preloadOne(layer,year){
+  if(imageCache[layer][year]!==undefined) return;
+  imageCache[layer][year]=null;
+  const url=buildWmsUrl(layer,year,`-180,${MIN_LAT},180,${MAX_LAT}`,IMG_W,IMG_H);
+  if(!url){imageCache[layer][year]=false;return;}
+  const img=new Image();img.crossOrigin='anonymous';
+  img.onload=()=>{
+    const c=document.createElement('canvas');c.width=IMG_W;c.height=IMG_H;
+    const ctx=c.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(img,0,0,IMG_W,IMG_H);
+    imageCache[layer][year]={canvas:c,ctx};
+    if(activeLayer===layer&&currentYear===year){applyOverlayFromCache(layer,year);setStatus('');}
   };
-  img.onerror=()=>{ imageCache[layer][year]=false; };
+  img.onerror=()=>{imageCache[layer][year]=false;};
   img.src=url;
 }
-
-function updatePreloadStatus() {
-  const vals = Object.values(imageCache).flatMap(l => Object.values(l));
-  const settled = vals.filter(v => v !== null && v !== undefined).length; // both success and failure
-  const succeeded = vals.filter(v => v && v.canvas).length;
-  const total = getYearsForLayer(activeLayer || 'lst').length;
-  if (settled < total) setStatus(`Preloading… ${Math.round(settled/total*100)}%`);
-  else { setStatus(`Loaded ${succeeded}/${total} years ✓`); setTimeout(()=>setStatus(''), 3000); }
-}
-
-/* ══════════════════════════════════════════════════════
-   NASA WMS — use NASA GIBS WMS endpoint (not WMTS tiles)
-   WMS returns a single image for any bounding box — no
-   tile coordinate math needed, no CORS issues.
-   Docs: https://wiki.earthdata.nasa.gov/display/GIBS/GIBS+API+for+Developers
-══════════════════════════════════════════════════════ */
-const GIBS_WMS_URL = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
-
-const LAYER_IDS = {
-  lst: 'MODIS_Terra_Land_Surface_Temp_Day',
-};
-
-// Scientifically calibrated NDVI baselines per biome (from published MODIS literature)
-// Format: [baseline_ndvi, trend_per_year (negative = declining)]
-const BIOME_NDVI = {
-  "Tropical Rainforest":        [0.82, -0.003],
-  "Tropical Seasonal Forest":   [0.65, -0.004],
-  "Subtropical Desert":         [0.08,  0.001],
-  "Mediterranean Shrubland":    [0.42, -0.003],
-  "Temperate Grassland":        [0.38, -0.002],
-  "Temperate Deciduous Forest": [0.62, -0.002],
-  "Temperate Rainforest":       [0.75, -0.002],
-  "Boreal Forest / Taiga":      [0.48, -0.003],
-  "Tundra":                     [0.22, -0.004],
-  "Ice / Polar Desert":         [0.02,  0.000],
-  "Montane / Alpine":           [0.35, -0.002],
-  "Mangrove":                   [0.72, -0.003],
-  "Flooded Grassland":          [0.52, -0.002],
-};
-
-// NDVI color scale: red (low) → yellow → green (high)
-function ndviColor(ndvi) {
-  const t = Math.max(0, Math.min(1, (ndvi - 0.0) / 0.9));
-  if (t < 0.3) {
-    const s = t / 0.3;
-    return `rgb(${Math.round(180+75*s)},${Math.round(60+100*s)},30)`;
-  } else if (t < 0.6) {
-    const s = (t-0.3)/0.3;
-    return `rgb(${Math.round(255-100*s)},${Math.round(160+60*s)},${Math.round(30+20*s)})`;
-  } else {
-    const s = (t-0.6)/0.4;
-    return `rgb(${Math.round(155-120*s)},${Math.round(220-50*s)},${Math.round(50-20*s)})`;
+function drawNasaOverlay(){
+  if(!activeLayer) return;
+  if(activeLayer==='ndvi') drawNdviLocal();
+  else{
+    const c=imageCache[activeLayer][currentYear];
+    if(c&&c.ctx) applyOverlayFromCache(activeLayer,currentYear);
+    else{setStatus('Loading…');preloadOne(activeLayer,currentYear);}
   }
 }
-
-function getNdviForBiome(biomeName, year) {
-  const params = BIOME_NDVI[biomeName];
-  if (!params) return null;
-  const [base, trend] = params;
-  const yearOffset = year - 2001;
-  const droughtPenalty = [2002,2005,2010,2012,2015,2016,2020,2021,2022].includes(year) ? -0.06 : 0;
-  // Amplify trend by 3x so it's visible across 22 years
-  return Math.max(0.02, Math.min(0.95, base + trend * yearOffset * 3 + droughtPenalty));
-}
-
-function buildWmsUrl(layer, year, bbox, width, height) {
-  if (layer === 'ndvi') return null; // handled locally
-  const params = new URLSearchParams({
-    SERVICE:'WMS', VERSION:'1.1.1', REQUEST:'GetMap',
-    LAYERS: LAYER_IDS[layer], SRS:'EPSG:4326',
-    BBOX: bbox, WIDTH: width, HEIGHT: height,
-    FORMAT:'image/png', TRANSPARENT:'true',
-    TIME:`${year}-07-12`, STYLES:'',
-  });
-  return `${GIBS_WMS_URL}?${params.toString()}`;
-}
-
-function getYearsForLayer(layer) { return YEARS; }
-
-function buildWmsUrl(layer, year, bbox, width, height) {
-  const time = layer === 'ndvi' ? ndviDate(year) : `${year}-07-12`;
-  if (!time) return null;
-  const params = new URLSearchParams({
-    SERVICE: 'WMS', VERSION: '1.1.1', REQUEST: 'GetMap',
-    LAYERS: LAYER_IDS[layer], SRS: 'EPSG:4326',
-    BBOX: bbox, WIDTH: width, HEIGHT: height,
-    FORMAT: 'image/png', TRANSPARENT: 'true',
-    TIME: time, STYLES: '',
-  });
-  return `${GIBS_WMS_URL}?${params.toString()}`;
-}
-
-function getYearsForLayer(layer) { return YEARS; }
-
-/* ── Draw NASA overlay ── */
-function drawNasaOverlay() {
-  if (!activeLayer) return;
-  if (activeLayer === 'ndvi') {
-    drawNdviLocal();
-  } else {
-    const cached = imageCache[activeLayer][currentYear];
-    if (cached && cached.ctx) applyOverlayFromCache(activeLayer, currentYear);
-    else { setStatus('Loading…'); preloadOne(activeLayer, currentYear); }
-  }
-}
-
-// Draw NDVI locally using calibrated biome values — instant, no network needed
-function drawNdviLocal() {
-  const nasaG = g.select('.layer-nasa');
-  nasaG.selectAll('*').remove();
-  g.selectAll('.biome').each(function(d) {
-    const biomeName = d3.select(this).attr('data-biome');
-    const ndvi = getNdviForBiome(biomeName, currentYear);
-    if (ndvi === null) return;
-    nasaG.append('path')
-      .attr('d', d3.select(this).attr('d'))
-      .attr('fill', ndviColor(ndvi))
-      .attr('opacity', 0.78)
-      .attr('stroke', 'none')
-      .attr('pointer-events', 'none');
+function drawNdviLocal(){
+  const nasaG=g.select('.layer-nasa');nasaG.selectAll('*').remove();
+  g.selectAll('.biome').each(function(){
+    const bname=d3.select(this).attr('data-biome');
+    const ndvi=getNdviForBiome(bname,currentYear);
+    if(ndvi===null) return;
+    nasaG.append('path').attr('d',d3.select(this).attr('d')).attr('fill',ndviColor(ndvi)).attr('opacity',0.78).attr('stroke','none').attr('pointer-events','none');
   });
   setStatus('');
 }
-
-function applyOverlayFromCache(layer, year) {
-  const cached = imageCache[layer][year];
-  if (!cached || !cached.ctx) return;
-  const { ctx } = cached;
-
-  const nasaG = g.select('.layer-nasa');
-  nasaG.selectAll('*').remove();
-
-  g.selectAll('.biome').each(function(d) {
-    const centroid = d3.geoCentroid(d);
-    if (!centroid) return;
-    const [lon, lat] = centroid;
-
-    const px = Math.floor((lon+180)/360*IMG_W);
-    const py = Math.floor((MAX_LAT-lat)/(MAX_LAT-MIN_LAT)*IMG_H);
-    if (px<0||px>=IMG_W||py<0||py>=IMG_H) return;
-
+function applyOverlayFromCache(layer,year){
+  const cached=imageCache[layer][year];if(!cached||!cached.ctx) return;
+  const{ctx}=cached;
+  const nasaG=g.select('.layer-nasa');nasaG.selectAll('*').remove();
+  g.selectAll('.biome').each(function(){
+    const centroid=d3.geoCentroid(d3.select(this).datum());if(!centroid) return;
+    const[lon,lat]=centroid;
+    const px=Math.floor((lon+180)/360*IMG_W);
+    const py=Math.floor((MAX_LAT-lat)/(MAX_LAT-MIN_LAT)*IMG_H);
+    if(px<0||px>=IMG_W||py<0||py>=IMG_H) return;
     let r,gv,b,a;
-    try {
-      [r,gv,b,a] = ctx.getImageData(px,py,1,1).data;
-    } catch(e) {
-      console.error('[NASA] Canvas tainted by CORS — cannot read pixels:', e);
-      setStatus('CORS error — cannot read NASA pixels');
-      return;
-    }
-    if (a<5) return;
-
-    d3.select(this).attr('data-nasa-r',r).attr('data-nasa-g',gv).attr('data-nasa-b',b);
-
-    nasaG.append('path')
-      .attr('d', d3.select(this).attr('d'))
-      .attr('fill', `rgba(${r},${gv},${b},0.72)`)
-      .attr('stroke','none')
-      .attr('pointer-events','none');
+    try{[r,gv,b,a]=ctx.getImageData(px,py,1,1).data;}catch(e){return;}
+    if(a<5) return;
+    nasaG.append('path').attr('d',d3.select(this).attr('d')).attr('fill',`rgba(${r},${gv},${b},0.72)`).attr('stroke','none').attr('pointer-events','none');
   });
   setStatus('');
 }
-
-function setStatus(msg) {
-  document.getElementById('tile-status').textContent = msg;
-}
-
-/* ── Toggle layer ── */
-function toggleLayer(layer, el) {
-  // Turn off the other
-  ['ndvi','lst'].forEach(l => {
-    if (l !== layer) {
-      document.getElementById(`toggle-${l}`).classList.remove('on');
-      document.getElementById(`${l}-scale`).classList.remove('visible');
-      document.getElementById(`tt-${l}-row`).style.display = 'none';
-    }
+function setStatus(msg){document.getElementById('tile-status').textContent=msg;}
+function toggleLayer(layer,el){
+  ['ndvi','lst'].forEach(l=>{
+    if(l!==layer){document.getElementById(`toggle-${l}`).classList.remove('on');document.getElementById(`${l}-scale`).classList.remove('visible');}
   });
-
-  if (activeLayer === layer) {
-    // toggle off
-    activeLayer = null;
-    el.classList.remove('on');
+  if(activeLayer===layer){
+    activeLayer=null;el.classList.remove('on');
     document.getElementById(`${layer}-scale`).classList.remove('visible');
-    document.getElementById(`tt-${layer}-row`).style.display = 'none';
-    document.getElementById('tt-div').style.display = 'none';
-    g.select('.layer-nasa').selectAll('*').remove();
-    setStatus('');
+    g.select('.layer-nasa').selectAll('*').remove();setStatus('');
   } else {
-    activeLayer = layer;
-    el.classList.add('on');
+    activeLayer=layer;el.classList.add('on');
     document.getElementById(`${layer}-scale`).classList.add('visible');
-    document.getElementById(`tt-${layer}-row`).style.display = 'flex';
-    document.getElementById('tt-div').style.display = 'block';
-    // Start preloading all years for this layer
-    if (layer !== 'ndvi') preloadLayer(layer); // NDVI renders locally
+    if(layer!=='ndvi') preloadLayer(layer);
     drawNasaOverlay();
   }
 }
-
-/* ── Year scrubber ── */
-document.getElementById('year-slider').addEventListener('input', function() {
-  currentYear = +this.value;
-  document.getElementById('year-display').textContent = currentYear;
-  if (activeLayer) drawNasaOverlay();
+document.getElementById('year-slider').addEventListener('input',function(){
+  currentYear=+this.value;
+  document.getElementById('year-display').textContent=currentYear;
+  if(activeLayer) drawNasaOverlay();
 });
-
-function togglePlay() {
+function togglePlay(){
   const btn=document.getElementById('play-btn');
-  if (playInterval) {
-    clearInterval(playInterval);
-    playInterval=null;
-    btn.textContent='▶ Play';
-    btn.classList.remove('playing');
-  } else {
-    btn.textContent='⏹ Stop';
-    btn.classList.add('playing');
+  if(playInterval){clearInterval(playInterval);playInterval=null;btn.textContent='▶ Play';btn.classList.remove('playing');}
+  else{
+    btn.textContent='⏹ Stop';btn.classList.add('playing');
     playInterval=setInterval(()=>{
-      const slider=document.getElementById('year-slider');
-      currentYear = currentYear>=2023 ? 2001 : currentYear+1;
-      slider.value=currentYear;
-      document.getElementById('year-display').textContent=currentYear;
-      if (activeLayer) {
-        if (activeLayer === 'ndvi') {
-          drawNdviLocal();
-        } else {
-          const cached=imageCache[activeLayer][currentYear];
-          if (cached && cached.ctx) applyOverlayFromCache(activeLayer,currentYear);
-        }
-      }
-    }, 1000);
+      const s=document.getElementById('year-slider');
+      currentYear=currentYear>=2023?2001:currentYear+1;
+      s.value=currentYear;document.getElementById('year-display').textContent=currentYear;
+      if(activeLayer){if(activeLayer==='ndvi')drawNdviLocal();else{const c=imageCache[activeLayer][currentYear];if(c&&c.ctx)applyOverlayFromCache(activeLayer,currentYear);}}
+    },500);
   }
 }
 
-/* ── Tooltip ── */
-function handleMouseMove(event, d) {
-  const biomeName = this.getAttribute('data-biome');
-  const biome = BIOMES[biomeName];
-  if (!biome) return;
-
-  let x = event.clientX+14, y = event.clientY+14;
-  if (x+260>window.innerWidth)  x = event.clientX-274;
-  if (y+180>window.innerHeight) y = event.clientY-194;
-  tooltip.style.left=x+'px'; tooltip.style.top=y+'px';
-
-  document.getElementById('tt-swatch').style.background = biome.color;
-  document.getElementById('tt-biome-name').textContent  = biomeName;
-  document.getElementById('tt-climate').textContent     = biome.climate;
-  document.getElementById('tt-precip').textContent      = biome.precip;
-  document.getElementById('tt-temp').textContent        = biome.temp;
-
-  updateTooltipNasa(this);
-  tooltip.classList.add('visible');
-
-  d3.selectAll('.biome').classed('biome-dimmed',true).classed('biome-highlighted',false);
-  d3.selectAll(`.biome[data-biome="${biomeName}"]`).classed('biome-dimmed',false).classed('biome-highlighted',true);
-}
-
-function updateTooltipNasa(el) {
-  if (!activeLayer || !el) return;
-  const biomeName = el ? el.getAttribute('data-biome') : null;
-  if (!biomeName) return;
-  const biome = BIOMES[biomeName];
-  if (!biome) return;
-
-  // Compute estimated value from biome range + year trend
-  const yearOffset = currentYear - 2001;
-
-  if (activeLayer === 'ndvi' && BIOME_NDVI[biomeName]) {
-    const ndvi = getNdviForBiome(biomeName, currentYear);
-    document.getElementById('tt-ndvi-val').textContent = ndvi.toFixed(3);
-  }
-  if (activeLayer === 'lst' && biome.lst) {
-    const [lo,hi] = biome.lst;
-    const mid = (lo+hi)/2;
-    // Warming trend ~0.02°C/year
-    const val = (mid + yearOffset*0.02).toFixed(1) + ' °C';
-    document.getElementById('tt-lst-val').textContent = val;
-  }
-}
-
-function handleMouseLeave() {
-  tooltip.classList.remove('visible');
-  d3.selectAll('.biome').classed('biome-dimmed',false).classed('biome-highlighted',false);
-}
-
-/* ── Map setup ── */
-async function init() {
-  const world = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
-  const countries = topojson.feature(world, world.objects.countries);
-  setupMap(countries);
-  buildLegend();
+/* ══════════════════════════════════════════════════════════
+   MAP SETUP
+══════════════════════════════════════════════════════════ */
+async function init(){
+  const world=await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+  const countries=topojson.feature(world,world.objects.countries);
+  setupMap(countries);buildLegend();
   document.getElementById('loading').style.display='none';
-  // Start preloading all NASA images in the background
-  preloadAll();
 }
-
-function setupMap(countries) {
-  const c = document.getElementById('map-container');
-  const W=c.clientWidth, H=c.clientHeight;
-  svg = d3.select('#map').attr('width',W).attr('height',H);
-
-  zoom = d3.zoom().scaleExtent([0.5,20]).on('zoom', event => {
-    g.attr('transform', event.transform);
+function setupMap(countries){
+  const c=document.getElementById('map-container');
+  const W=c.clientWidth,H=c.clientHeight;
+  svg=d3.select('#map').attr('width',W).attr('height',H);
+  zoom=d3.zoom().scaleExtent([0.5,20]).on('zoom',event=>{
+    g.attr('transform',event.transform);
     document.getElementById('zoom-indicator').textContent=`Zoom: ${event.transform.k.toFixed(1)}×`;
   });
-  svg.call(zoom);
-
-  g = svg.append('g');
+  svg.call(zoom);g=svg.append('g');
   g.append('g').attr('class','layer-sphere');
   g.append('g').attr('class','layer-biomes');
   g.append('g').attr('class','layer-nasa');
-  g.append('g').attr('class','layer-borders');
-  g.append('g').attr('class','layer-graticule');
-
   renderProjection(countries,W,H);
   window._worldData=countries;
   window.addEventListener('resize',()=>{
@@ -598,19 +686,13 @@ function setupMap(countries) {
     renderProjection(window._worldData,W2,H2);
   });
 }
-
-function renderProjection(countries,W,H) {
-  projection = currentProjection==='mercator'
-    ? d3.geoMercator().scale(W/6.5).translate([W/2,H/1.6])
-    : d3.geoNaturalEarth1().scale(W/6.4).translate([W/2,H/2]);
-  path = d3.geoPath().projection(projection);
-
+function renderProjection(countries,W,H){
+  projection=currentProjection==='mercator'
+    ?d3.geoMercator().scale(W/6.5).translate([W/2,H/1.6])
+    :d3.geoNaturalEarth1().scale(W/6.4).translate([W/2,H/2]);
+  path=d3.geoPath().projection(projection);
   g.select('.layer-sphere').selectAll('*').remove();
   g.select('.layer-sphere').append('path').datum({type:'Sphere'}).attr('class','sphere').attr('d',path);
-
-  g.select('.layer-graticule').selectAll('*').remove();
-  g.select('.layer-graticule').append('path').datum(d3.geoGraticule()()).attr('class','graticule').attr('d',path);
-
   g.select('.layer-biomes').selectAll('*').remove();
   g.select('.layer-biomes').selectAll('path.biome')
     .data(countries.features).join('path')
@@ -620,43 +702,282 @@ function renderProjection(countries,W,H) {
       d3.select(this).attr('data-biome',classifyBiome(c[0],c[1]));
     })
     .on('mousemove',handleMouseMove)
-    .on('mouseleave',handleMouseLeave);
-
-  g.select('.layer-borders').selectAll('*').remove();
-  g.select('.layer-borders').append('path').datum(countries).attr('class','country-border').attr('d',path);
-
-  if (activeLayer) drawNasaOverlay();
+    .on('mouseleave',handleMouseLeave)
+    .on('click',handleClick);
+  if(activeLayer) drawNasaOverlay();
 }
-
-function setProjection(type) {
+function setProjection(type){
   currentProjection=type;
   document.querySelectorAll('.control-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('btn-'+(type==='naturalEarth'?'natural':'mercator')).classList.add('active');
   const c=document.getElementById('map-container');
-  renderProjection(window._worldData,c.clientWidth,c.clientHeight);
-  resetZoom();
+  renderProjection(window._worldData,c.clientWidth,c.clientHeight);resetZoom();
 }
-function resetZoom(){
-  if (svg && zoom) svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity);
-}
+function resetZoom(){if(svg&&zoom)svg.transition().duration(400).call(zoom.transform,d3.zoomIdentity);}
 
 function buildLegend(){
   const legend=document.getElementById('legend');
   for(const [name,def] of Object.entries(BIOMES)){
     const item=document.createElement('div');
     item.className='legend-item';
-    item.innerHTML=`<div class="legend-swatch" style="background:${def.color}"></div><div class="legend-name">${name}</div>`;
+    item.innerHTML=`<div class="legend-swatch" style="background:${def.color}"></div><div class="legend-name">${name}</div><button class="legend-explore-btn">Explore →</button>`;
+    item.querySelector('.legend-explore-btn').addEventListener('click',e=>{e.stopPropagation();openScrolly(name);});
     item.addEventListener('mouseenter',()=>{
       d3.selectAll('.biome').classed('biome-dimmed',true);
       d3.selectAll(`.biome[data-biome="${name}"]`).classed('biome-dimmed',false).classed('biome-highlighted',true);
+      showBiomePanel(name);
     });
     item.addEventListener('mouseleave',()=>{
       d3.selectAll('.biome').classed('biome-dimmed',false).classed('biome-highlighted',false);
+      schedulePanelHide();
     });
     legend.appendChild(item);
   }
 }
 
+/* ══════════════════════════════════════════════════════════
+   SCROLLY — chapter definitions
+══════════════════════════════════════════════════════════ */
+function getChapters(name,biome){
+  const rc=biome.droughtRiskClass;
+  const valClass=rc==='danger'?'danger':rc==='warm'?'warm':'cool';
+  const ph=(label,h=200)=>`<div class="panel-viz-ph" style="min-height:${h}px">
+    <svg width="28" height="28" viewBox="0 0 36 36" fill="none" style="opacity:0.25"><rect x="2" y="2" width="32" height="32" rx="3" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="13" r="3" stroke="currentColor" stroke-width="1.2"/><path d="M2 26l8-7 5 5 6-6 13 9" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+    <div class="panel-viz-title">${label}</div></div>`;
+
+  return [
+    {
+      label:'Overview',
+      bg: biome.bgGradient,
+      panel:`
+        <div class="panel-eyebrow">Anatomy of a Drought · ${name}</div>
+        <h1 class="panel-title">When ${name.split('/')[0].trim().toLowerCase()}<br><em>runs dry</em></h1>
+        <p class="panel-body">${biome.droughtIntro}</p>
+        <div class="panel-stats">
+          <div class="panel-stat"><div class="panel-stat-val">${biome.area}</div><div class="panel-stat-label">Total area</div></div>
+          <div class="panel-stat"><div class="panel-stat-val">${biome.coverage}</div><div class="panel-stat-label">Land coverage</div></div>
+          <div class="panel-stat"><div class="panel-stat-val ${valClass}">${biome.droughtRisk}</div><div class="panel-stat-label">Drought risk</div></div>
+        </div>`,
+      right:ph(`Hero image — ${name}`, 320),
+    },
+    {
+      label:'01 · The Biome',
+      bg: biome.bgGradient,
+      panel:`
+        <div class="panel-eyebrow">01 · Understanding the biome</div>
+        <h2 class="panel-title">The ecological character of ${name}</h2>
+        <p class="panel-body">[PLACEHOLDER] Describe the ${name} biome — its defining climate conditions, signature plant and animal communities, and role in the global ecosystem.</p>
+        <p class="panel-body">[PLACEHOLDER] A second paragraph on water cycling, carbon storage, and biodiversity significance.</p>
+        <div class="panel-callout"><div class="panel-callout-text">"[PLACEHOLDER — a striking scientific quote or key data point about this biome]"</div></div>`,
+      right:ph(`Photo — healthy ${name} ecosystem`, 280),
+    },
+    {
+      label:'02 · Defining Drought',
+      bg: biome.bgGradient,
+      panel:`
+        <div class="panel-eyebrow">02 · Defining drought here</div>
+        <h2 class="panel-title">Drought doesn't look the same everywhere</h2>
+        <p class="panel-body">[PLACEHOLDER] Explain how drought manifests specifically in the ${name} — soil moisture deficit, VPD, snowpack loss, etc. What metrics do scientists use?</p>
+        <div class="panel-stats" style="margin-top:24px;">
+          <div class="panel-stat"><div class="panel-stat-val danger">[X.X°C]</div><div class="panel-stat-label">Warming above baseline</div></div>
+          <div class="panel-stat"><div class="panel-stat-val warm">[XX%]</div><div class="panel-stat-label">Change in wet season rainfall</div></div>
+          <div class="panel-stat"><div class="panel-stat-val cool">[X×]</div><div class="panel-stat-label">Increase in drought frequency</div></div>
+        </div>`,
+      right:`<div class="panel-viz-ph" style="min-height:260px">
+        <svg width="28" height="28" viewBox="0 0 36 36" fill="none" style="opacity:0.25"><rect x="2" y="2" width="32" height="32" rx="3" stroke="currentColor" stroke-width="1.2"/><path d="M6 28V20M12 28V16M18 28V22M24 28V14M30 28V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <div class="panel-viz-title">DATA VIZ — Drought severity index over time (PDSI, 1950–2024)</div></div>`,
+    },
+    {
+      label:'03 · Mechanisms',
+      bg: biome.bgGradient,
+      panel:`
+        <div class="panel-eyebrow">03 · Mechanisms &amp; triggers</div>
+        <h2 class="panel-title">What causes drought to intensify here?</h2>
+        <p class="panel-body">[PLACEHOLDER] Describe the biome-specific drought triggers and feedbacks — e.g. deforestation→reduced ET→reduced rainfall, or permafrost thaw→fire→albedo change.</p>
+        <div class="panel-timeline">
+          <div class="ptl-item"><div class="ptl-left"><div class="ptl-dot"></div><div class="ptl-line"></div></div><div class="ptl-right"><div class="ptl-date">[YEAR]</div><div class="ptl-title">[Historical drought event]</div><div class="ptl-body">[What happened, how severe, ecological and human consequences. 2–3 sentences.]</div></div></div>
+          <div class="ptl-item"><div class="ptl-left"><div class="ptl-dot"></div><div class="ptl-line"></div></div><div class="ptl-right"><div class="ptl-date">[YEAR]</div><div class="ptl-title">[Second significant event]</div><div class="ptl-body">[Description and impacts.]</div></div></div>
+          <div class="ptl-item"><div class="ptl-left"><div class="ptl-dot danger"></div></div><div class="ptl-right"><div class="ptl-date">[RECENT]</div><div class="ptl-title">[Most recent notable drought]</div><div class="ptl-body">[What happened, current status, links to NASA / NOAA data.]</div></div></div>
+        </div>`,
+      right:ph(`Diagram — drought feedback mechanism for ${name}`, 300),
+    },
+    {
+      label:'04 · NASA Evidence',
+      bg: biome.bgGradient,
+      panel:`
+        <div class="panel-eyebrow">04 · NASA &amp; satellite evidence</div>
+        <h2 class="panel-title">What the satellites show</h2>
+        <p class="panel-body">[PLACEHOLDER] Describe what NASA satellite products (MODIS NDVI, GRACE groundwater, GPM precipitation, SMAP soil moisture) reveal about water stress in the ${name}.</p>`,
+      right:`
+        ${ph(`NASA MODIS NDVI anomaly — ${name}`, 180)}
+        <div style="margin-top:10px">${ph(`GRACE groundwater / SMAP — ${name}`, 180)}</div>`,
+    },
+    {
+      label:'05 · Consequences',
+      bg: biome.bgGradient,
+      panel:`
+        <div class="panel-eyebrow">05 · Consequences</div>
+        <h2 class="panel-title">What drought is doing — and will do</h2>
+        <p class="panel-body">[PLACEHOLDER] Ecological consequences: biodiversity loss, carbon release, fire risk, species range shifts. Human consequences: agriculture disruption, water scarcity, displacement, food security.</p>
+        <p class="panel-body">[PLACEHOLDER] Forward-looking paragraph — projections under 1.5°C, 2°C, and 3°C warming. What does IPCC AR6 say about this biome's outlook?</p>`,
+      right:ph(`Photo — visible drought impact in ${name}`, 300),
+    },
+    {
+      label:'06 · Resilience',
+      bg: biome.bgGradient,
+      panel:`
+        <div class="panel-eyebrow">06 · Resilience &amp; outlook</div>
+        <h2 class="panel-title">Therefore — what can be done?</h2>
+        <p class="panel-body">[PLACEHOLDER] Resilience strategies, restoration, policy levers, and adaptive practices that can reduce drought vulnerability in the ${name}. Concrete examples.</p>
+        <div class="panel-res-grid">
+          <div class="panel-res-card"><div class="panel-res-title">[Adaptation 1]</div><div class="panel-res-body">[e.g. prescribed burning, water harvesting, assisted migration, rewilding.]</div></div>
+          <div class="panel-res-card"><div class="panel-res-title">[Adaptation 2]</div><div class="panel-res-body">[Description of second strategy.]</div></div>
+          <div class="panel-res-card"><div class="panel-res-title">[Adaptation 3]</div><div class="panel-res-body">[Description of third strategy.]</div></div>
+          <div class="panel-res-card"><div class="panel-res-title">[Policy &amp; Global]</div><div class="panel-res-body">[Paris Agreement, CBD, Sendai, Nature Finance.]</div></div>
+        </div>`,
+      right:`<div class="panel-viz-ph" style="min-height:280px">
+        <svg width="28" height="28" viewBox="0 0 36 36" fill="none" style="opacity:0.25"><rect x="2" y="2" width="32" height="32" rx="3" stroke="currentColor" stroke-width="1.2"/><path d="M6 28V20M12 28V16M18 28V22M24 28V14M30 28V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <div class="panel-viz-title">DATA VIZ — Projected drought severity under 1.5°C / 2°C / 3°C</div></div>`,
+    },
+    {
+      label:'End',
+      bg: biome.bgGradient,
+      panel:`
+        <div class="panel-eyebrow">Anatomy of a Drought</div>
+        <h2 class="panel-title" style="font-style:italic;color:rgba(226,232,240,0.5);">Explore another biome</h2>
+        <p class="panel-body">Return to the world map to dive into a different biome's drought story.</p>
+        <button class="bp-cta" style="margin-top:28px;max-width:280px;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px 16px;background:var(--accent);border:none;color:#0a0f1a;font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer;" onclick="closeScrolly()">
+          ← Back to world map
+        </button>`,
+      right:'',
+    },
+  ];
+}
+
+/* ══════════════════════════════════════════════════════════
+   SCROLLY — open / close / build
+══════════════════════════════════════════════════════════ */
+let scrollChapters=[];
+let currentChapterIdx=0;
+
+function openScrolly(biomeName){
+  const biome=BIOMES[biomeName];if(!biome) return;
+  hideTooltip();hideClickBadge();
+  const overlay=document.getElementById('transition-overlay');
+  overlay.classList.add('fade-in');
+  setTimeout(()=>{
+    buildScrolly(biomeName,biome);
+    document.getElementById('view-map').classList.add('hidden');
+    const sv=document.getElementById('view-scrolly');
+    sv.classList.add('active');
+    document.getElementById('scroll-driver').scrollTop=0;
+    overlay.classList.remove('fade-in');
+  },280);
+}
+function closeScrolly(){
+  const overlay=document.getElementById('transition-overlay');
+  overlay.classList.add('fade-in');
+  setTimeout(()=>{
+    document.getElementById('view-map').classList.remove('hidden');
+    document.getElementById('view-scrolly').classList.remove('active');
+    overlay.classList.remove('fade-in');
+    currentHoveredBiome=null;
+    biomePanel.classList.remove('visible');
+  },280);
+}
+
+function buildScrolly(name,biome){
+  scrollChapters=getChapters(name,biome);
+  const n=scrollChapters.length;
+  document.getElementById('scrolly-dot').style.background=biome.color;
+  document.getElementById('scrolly-label').textContent=name;
+  document.getElementById('scroll-spacer').style.height=(n*100)+'vh';
+  const bgsEl=document.getElementById('stage-bgs');
+  bgsEl.innerHTML='';
+  scrollChapters.forEach((ch,i)=>{
+    const div=document.createElement('div');
+    div.className='stage-bg'+(i===0?' active':'');
+    div.style.background=ch.bg;
+    bgsEl.appendChild(div);
+  });
+  const panelsEl=document.getElementById('stage-panels');
+  panelsEl.innerHTML='';
+  scrollChapters.forEach((ch,i)=>{
+    const div=document.createElement('div');
+    div.className='scroll-panel'+(i===0?' active':'');
+    div.innerHTML=ch.panel+`<div class="panel-chapter-num">${ch.label}</div>`;
+    panelsEl.appendChild(div);
+  });
+  const rightsEl=document.getElementById('stage-rights');
+  rightsEl.innerHTML='';
+  scrollChapters.forEach((ch,i)=>{
+    const wrap=document.createElement('div');
+    wrap.className='stage-right';
+    const inner=document.createElement('div');
+    inner.className='stage-right-inner'+(i===0?' active':'');
+    inner.innerHTML=ch.right||'';
+    wrap.appendChild(inner);
+    rightsEl.appendChild(wrap);
+  });
+  const prog=document.getElementById('chapter-progress');
+  prog.innerHTML=scrollChapters.map((_,i)=>`<div class="cp-dot${i===0?' active':''}" data-idx="${i}"></div>`).join('');
+  prog.querySelectorAll('.cp-dot').forEach(dot=>{
+    dot.addEventListener('click',()=>{
+      const idx=+dot.dataset.idx;
+      document.getElementById('scroll-driver').scrollTop=idx*(window.innerHeight);
+    });
+  });
+  currentChapterIdx=0;
+  updateChapterLabel(0);
+  document.getElementById('scroll-cue').classList.remove('hide');
+  setupScrollDriver(n);
+}
+
+function updateChapterLabel(idx){
+  document.getElementById('chapter-label').textContent=scrollChapters[idx]?.label||'';
+}
+
+function goToChapter(idx){
+  const n=scrollChapters.length;
+  if(idx<0||idx>=n) return;
+  const prev=currentChapterIdx;
+  currentChapterIdx=idx;
+  document.querySelectorAll('.stage-bg').forEach((el,i)=>el.classList.toggle('active',i===idx));
+  const panels=document.querySelectorAll('.scroll-panel');
+  panels.forEach((el,i)=>{
+    if(i===prev&&i!==idx){el.classList.add('exit-left');el.classList.remove('active');}
+    else if(i!==idx){el.classList.remove('active','exit-left');}
+  });
+  if(panels[idx]){
+    setTimeout(()=>{
+      panels.forEach((el,i)=>{if(i===prev) el.classList.remove('exit-left');});
+      panels[idx].classList.add('active');
+    },idx>prev?50:0);
+  }
+  document.querySelectorAll('.stage-right-inner').forEach((el,i)=>el.classList.toggle('active',i===idx));
+  document.querySelectorAll('.cp-dot').forEach((el,i)=>el.classList.toggle('active',i===idx));
+  document.getElementById('scroll-progress-bar').style.width=((idx/(n-1))*100)+'%';
+  document.getElementById('scroll-cue').classList.toggle('hide',idx===n-1);
+  updateChapterLabel(idx);
+}
+
+function setupScrollDriver(n){
+  const driver=document.getElementById('scroll-driver');
+  const fresh=driver.cloneNode(true);
+  driver.parentNode.replaceChild(fresh,driver);
+  const newDriver=document.getElementById('scroll-driver');
+  newDriver.addEventListener('scroll',()=>{
+    const scrollTop=newDriver.scrollTop;
+    const vh=window.innerHeight;
+    const idx=Math.round(scrollTop/vh);
+    const clamped=Math.max(0,Math.min(n-1,idx));
+    if(clamped!==currentChapterIdx) goToChapter(clamped);
+  },{passive:true});
+}
+
+/* ══════════════════════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════════════════════ */
 init().catch(err=>{
   document.querySelector('.loading-text').textContent='Error — check console.';
   console.error(err);
