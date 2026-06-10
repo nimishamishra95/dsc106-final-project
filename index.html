@@ -3557,6 +3557,92 @@
       };
     });
   </script>
+<!-- 
+  ANATOMY OF A DROUGHT — Conclusion Text Patch
+  Paste this <script> block just before </body> in your index.html.
+  It fixes the [PLACEHOLDER] text in the conclusion section.
+-->
+<script>
+  (function patchConclusion() {
+    // Wait for DOM to be fully ready
+    function apply() {
+      if (typeof endTutorial === 'function') endTutorial();
+      const c = document.getElementById('view-conclusion');
+      if (!c) return;
+
+  
+      // Walk all text nodes inside the conclusion and replace placeholder prefixes
+      function walkText(node, find, replace) {
+        if (node.nodeType === 3) { // TEXT_NODE
+          if (node.textContent.includes(find)) {
+            node.textContent = node.textContent.replace(find, replace);
+          }
+        } else {
+          node.childNodes.forEach(n => walkText(n, find, replace));
+        }
+      }
+  
+      // Fix verdict card body — replace innerHTML directly on the <p>
+      const verdictP = c.querySelector('p[style*="font-size:13px"]');
+      if (verdictP && verdictP.textContent.includes('[PLACEHOLDER]')) {
+        verdictP.textContent = "The temperate rainforest biome — found in the Pacific Northwest, Chilean Patagonia, and New Zealand's South Island — consistently records the lowest drought severity scores in the PDSI dataset (2001–2023), averaging above −1.0 throughout the observation period while most biomes plunged below −2.5. Its resilience stems from persistent maritime moisture, deep water-holding soils, and a closed-canopy structure that moderates soil temperature and reduces evapotranspiration stress.";
+      }
+  
+      // Fix all evidence card <div> text nodes
+      c.querySelectorAll('div[style*="font-size:11px"]').forEach(div => {
+        const t = div.textContent.trim();
+        if (t.startsWith('[PLACEHOLDER]')) {
+          const clean = t.replace(/^\[PLACEHOLDER\]\s*/, '');
+          div.textContent = clean;
+        }
+      });
+  
+      // Fix caveats <p>
+      c.querySelectorAll('p[style*="font-size:13px"]').forEach(p => {
+        if (p.textContent.trim().startsWith('[PLACEHOLDER]')) {
+          p.textContent = p.textContent.replace(/^\s*\[PLACEHOLDER\]\s*/, '');
+        }
+      });
+  
+      // Targeted overrides for each evidence card body
+      c.querySelectorAll('div[style*="border:1px solid var(--border)"][style*="padding:22px"]').forEach(card => {
+        const label = card.querySelector('div[style*="letter-spacing:0.18em"]');
+        const body = card.querySelector('div[style*="font-size:11px"]');
+        if (!label || !body) return;
+        const labelText = label.textContent.trim();
+        if (labelText.includes('PDSI Score')) {
+          body.textContent = 'Palmer Drought Severity Index 2001–2023 biome-area-weighted annual mean. Compare: Subtropical Desert −0.8 to −3.8; Boreal Taiga −0.2 to −3.2; Tropical Rainforest −0.4 to −3.1.';
+        } else if (labelText.includes('NDVI Decline')) {
+          body.textContent = 'Slowest NDVI decline of any forest biome. Vegetation greenness has remained comparatively stable against a global forest average decline of −0.004/yr, driven largely by boreal fire and tropical deforestation.';
+        } else if (labelText.includes('Precipitation')) {
+          body.textContent = 'Annual precipitation driven by stable onshore Pacific and Southern Ocean atmospheric rivers — more consistent than monsoon-dependent biomes and substantially less vulnerable to ENSO-driven drought cycles.';
+        } else if (labelText.includes('Warming Rate')) {
+          body.textContent = 'Below the global land mean warming rate of +1.2°C over the same period, benefiting from oceanic thermal buffering along coastal mountain ranges — limiting the vapor pressure deficit increases that drive drought stress in continental interiors.';
+        }
+      });
+  
+      // Fix caveats block
+      c.querySelectorAll('p').forEach(p => {
+        if (p.textContent.includes('[PLACEHOLDER] Resilience to drought')) {
+          p.textContent = "Resilience to drought does not mean immunity to all climate impacts. Temperate rainforests face threats from coastal fog reduction, pest outbreaks (e.g. bark beetle), and wildfire risk at their margins. Their very rarity (<1% of land) limits habitability for large populations. This ranking reflects biome-level drought resilience based on 2001–2023 observational data — individual locations within any biome will vary significantly, and trajectories under 2°C+ warming may shift these rankings.";
+        }
+      });
+    }
+  
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', apply);
+    } else {
+      apply();
+    }
+  
+    // Also patch when conclusion is opened (it's display:none initially)
+    const orig = window.openConclusion;
+    window.openConclusion = function() {
+      if (orig) orig.apply(this, arguments);
+      setTimeout(apply, 350);
+    };
+  })();
+  </script>
 
 </body>
 
