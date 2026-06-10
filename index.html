@@ -1189,11 +1189,11 @@
       right: 0;
       top: 0;
       bottom: 0;
-      width: 38vw;
+      width: 42vw;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 100px 48px 80px;
+      padding: 100px 40px 80px;
       z-index: 3;
       pointer-events: none;
     }
@@ -1208,6 +1208,7 @@
     .stage-right-inner.active {
       opacity: 1;
       transform: translateX(0);
+      pointer-events: auto;
     }
 
     .panel-viz-ph {
@@ -1445,7 +1446,7 @@
     .pdsi-chart-el {
       width: 100%;
       flex: 1;
-      min-height: 280px;
+      min-height: 380px;
       position: relative;
     }
 
@@ -1501,7 +1502,7 @@
       <button class="hook-enter" onclick="dismissHook()">Explore the map →</button>
       <button class="hook-enter"
         style="color:var(--text-muted);border-color:rgba(100,116,139,0.35);background:rgba(100,116,139,0.06);"
-        onclick="dismissHook();setTimeout(openConclusion,750)">Skip to conclusion ↓</button>
+        onclick="dismissHook();endTutorial();setTimeout(openConclusion,750)">Skip to conclusion ↓</button>
     </div>
   </div>
   <!-- ══ MAP VIEW ══════════════════════════════════════════ -->
@@ -1820,6 +1821,7 @@
     }
 
     function openConclusion() {
+      if (typeof endTutorial === 'function') endTutorial();
       const ov = document.getElementById('transition-overlay');
       ov.classList.add('fade-in');
       setTimeout(() => {
@@ -1971,8 +1973,8 @@
 
         const data = PDSI_DATA[biomeName] || PDSI_DATA['Temperate Grassland'];
         const W = Math.max(container.clientWidth || 0, 320);
-        const H = 290;
-        const m = { top: 22, right: 62, bottom: 34, left: 36 };
+        const H = 400;
+        const m = { top: 28, right: 70, bottom: 40, left: 44 };
         const iw = W - m.left - m.right;
         const ih = H - m.top - m.bottom;
         const minY = -4.3, maxY = 1.9;
@@ -2020,16 +2022,16 @@
 
         // x-axis labels
         for (const ti of [0, 5, 10, 15, 20, 22])
-          s += '<text x="' + xS(ti) + '" y="' + (m.top + ih + 20) + '" text-anchor="middle" fill="rgba(100,116,139,0.85)" font-size="10.5" font-family="DM Mono,monospace">' + YEARS[ti] + '</text>';
+          s += '<text x="' + xS(ti) + '" y="' + (m.top + ih + 24) + '" text-anchor="middle" fill="rgba(100,116,139,0.85)" font-size="12" font-family="DM Mono,monospace">' + YEARS[ti] + '</text>';
 
         // y-axis labels
         for (const v of [-4, -3, -2, -1, 0, 1])
-          s += '<text x="' + (m.left - 6) + '" y="' + (yS(v) + 3.5) + '" text-anchor="end" fill="rgba(100,116,139,0.85)" font-size="10.5" font-family="DM Mono,monospace">' + v + '</text>';
+          s += '<text x="' + (m.left - 8) + '" y="' + (yS(v) + 4) + '" text-anchor="end" fill="rgba(100,116,139,0.85)" font-size="12" font-family="DM Mono,monospace">' + v + '</text>';
 
         // right-side severity category labels
         for (const [v, lbl, col] of [[-3.65, 'Extreme', 'rgba(239,68,68,0.7)'], [-2.5, 'Severe', 'rgba(245,158,11,0.7)'], [-1.5, 'Moderate', 'rgba(245,158,11,0.5)']])
-          s += '<text x="' + (m.left + iw + 6) + '" y="' + (yS(v) + 3.5) + '" fill="' + col + '" font-size="9" font-family="DM Mono,monospace" letter-spacing="0.1em">' + lbl + '</text>';
-        s += '<text x="' + (m.left + iw + 6) + '" y="' + (yS(0) + 3.5) + '" fill="rgba(56,189,248,0.5)" font-size="9" font-family="DM Mono,monospace">Normal</text>';
+          s += '<text x="' + (m.left + iw + 8) + '" y="' + (yS(v) + 4) + '" fill="' + col + '" font-size="10.5" font-family="DM Mono,monospace" letter-spacing="0.1em">' + lbl + '</text>';
+        s += '<text x="' + (m.left + iw + 8) + '" y="' + (yS(0) + 4) + '" fill="rgba(56,189,248,0.5)" font-size="10.5" font-family="DM Mono,monospace">Normal</text>';
 
         // ── Invisible hover hit-target rects (one per year column) ────────────
         const slotW = iw / (YEARS.length - 1);
@@ -2458,6 +2460,501 @@
     /* ══════════════════════════════════════════════════════════
        SCROLLY — chapter definitions
     ══════════════════════════════════════════════════════════ */
+
+    // ── Per-biome historical droughts ───────────────────────
+    const BIOME_DROUGHTS = {
+      "Tropical Rainforest": [
+        { year: "2005", loc: "Amazon Basin, Brazil", title: "Amazon Megadrought", body: "Rivers across the Brazilian Amazon dropped to historic lows, stranding communities and killing millions of trees. The drought was linked to a warm tropical Atlantic disrupting moisture transport into the basin, and was at the time described as the worst in a century.", danger: true },
+        { year: "2010", loc: "Amazon Basin", title: "Second Amazon Megadrought", body: "A second severe drought struck just five years later, this time worse by some measures — the Rio Negro fell to its lowest level ever recorded. Repeated megadroughts so close together alarmed scientists about crossing a tipping point toward permanent savannification.", danger: true },
+        { year: "2015–16", loc: "Southeast Asia & Amazon", title: "El Niño Double Hit", body: "The strongest El Niño on record drove simultaneous droughts across Borneo, Sumatra, and the Amazon. Massive peat fires in Indonesia released more carbon than the entire EU that year. Coral bleaching events further stressed tropical coastal rainforests.", danger: true },
+      ],
+      "Tropical Seasonal Forest": [
+        { year: "1997–98", loc: "Southeast Asia & Central America", title: "El Niño Fire Season", body: "Extreme dry conditions linked to the 1997–98 El Niño triggered catastrophic wildfires across Indonesia and Central America. Over 9.7 million hectares burned in Indonesia alone, causing a regional health crisis from smoke pollution affecting over 70 million people.", danger: true },
+        { year: "2012–13", loc: "Cerrado, Brazil", title: "Brazilian Cerrado Drought", body: "The Cerrado — the world's most biodiverse tropical savanna — experienced a prolonged multi-year drought that reduced river flows feeding major agricultural regions and accelerated the loss of native vegetation to soy expansion.", danger: false },
+        { year: "2019", loc: "Pantanal & Cerrado, Brazil", title: "Record Dry Season", body: "Brazil's Pantanal and Cerrado saw their driest dry season in decades, with fire activity reaching a 13-year high. The drought stress on the already heavily fragmented Cerrado pushed dozens of endemic species closer to extinction.", danger: true },
+      ],
+      "Subtropical Desert": [
+        { year: "2007–09", loc: "Australia (Millennium Drought)", title: "Millennium Drought Peak", body: "Australia's Millennium Drought peaked with the Murray-Darling Basin — the country's agricultural heartland — at critically low levels. Irrigated farming collapsed across much of Victoria and New South Wales, with estimated losses exceeding AUD $3 billion.", danger: true },
+        { year: "2012", loc: "Sahel, West Africa", title: "Sahel Food Crisis", body: "Widespread drought across the Sahel pushed 18 million people into acute food insecurity, with Niger, Mali, and Chad hardest hit. Livestock losses exceeded 30% in the worst-affected zones, collapsing pastoral livelihoods that had persisted for millennia.", danger: true },
+        { year: "2020–23", loc: "Southwest USA & Northern Mexico", title: "Megadrought Confirmed", body: "Scientists confirmed the Southwest US was in the worst megadrought in at least 1,200 years, driven by above-average temperatures amplifying natural drying. Lake Mead — the largest US reservoir — fell to its lowest level since it was filled in the 1930s.", danger: true },
+      ],
+      "Mediterranean Shrubland": [
+        { year: "2003", loc: "Iberian Peninsula & France", title: "European Megaheatwave & Drought", body: "The catastrophic 2003 European heatwave was underpinned by one of the most severe droughts in 500 years. Wildfires burned over 650,000 hectares in Portugal alone. The drought contributed to 70,000 excess deaths across Europe.", danger: true },
+        { year: "2017", loc: "Portugal & Spain", title: "Deadly Iberian Wildfires", body: "Following an extremely dry winter and spring, catastrophic fires in Portugal's Pedrógão Grande killed over 100 people in a single day. The fires were a direct consequence of vegetation desiccated by persistent drought and anomalously high temperatures.", danger: true },
+        { year: "2022", loc: "Western Europe", title: "Record Summer Drought", body: "The summer of 2022 brought the worst drought across western Europe since at least 500 years of instrumental records. Rivers including the Loire, Rhine, and Danube fell to record lows. France lost 40% of its hydroelectric generating capacity.", danger: true },
+      ],
+      "Temperate Grassland": [
+        { year: "1988", loc: "Great Plains, North America", title: "North American Drought & Dust Bowl Echo", body: "The 1988 drought was the worst the US had experienced since the 1930s Dust Bowl, reducing corn and soybean yields by 30–40% and costing an estimated $40 billion. Wildfires consumed large areas of Yellowstone National Park that summer.", danger: false },
+        { year: "2010", loc: "Russian Steppe", title: "Russian Heatwave & Wheat Crisis", body: "A record heatwave and drought devastated the Russian steppe, destroying 40% of the wheat harvest. Russia imposed export bans that triggered a global food price spike, contributing to social unrest across the Middle East and North Africa.", danger: true },
+        { year: "2012", loc: "Great Plains, North America", title: "Worst US Drought Since the 1930s", body: "Declared the worst drought since the Dust Bowl, the 2012 North American drought affected 60% of the contiguous United States at its peak. Corn and soybean futures hit record highs, and losses to agriculture exceeded $30 billion — one of the costliest disasters in US history.", danger: true },
+      ],
+      "Temperate Deciduous Forest": [
+        { year: "2003", loc: "Central Europe", title: "European Megadrought", body: "The 2003 drought killed up to 30% of forest trees in parts of France and Germany through a combination of heat stress and soil moisture deficit. Growth rings from that year show the lowest productivity in 500 years for many European forest sites.", danger: true },
+        { year: "2018", loc: "Northern & Central Europe", title: "Record European Drought", body: "Consecutive dry years 2018–2019 caused unprecedented tree mortality across Germany, Czech Republic, and Scandinavia — over 100 million cubic meters of timber was killed by bark beetles exploiting drought-weakened trees. German forests lost 10% of their area.", danger: true },
+        { year: "2022", loc: "England & France", title: "UK & French Forest Stress Event", body: "England recorded its highest temperatures ever (40.3°C) during a prolonged drought that left soils at their driest since the 1970s across much of northwest Europe. Oak and beech trees showed widespread premature leaf drop — a physiological stress response not seen at scale in historical records.", danger: false },
+      ],
+      "Temperate Rainforest": [
+        { year: "2015", loc: "Pacific Northwest, USA", title: "Record Low Snowpack Year", body: "Washington State's 2015 snowpack fell to just 16% of normal — the lowest on record — driven by record warmth combined with below-normal precipitation. Rivers fed by the Olympic and Cascade ranges ran exceptionally low, stressing salmon runs and triggering unprecedented late-summer low flows in rainforest streams.", danger: false },
+        { year: "2021", loc: "British Columbia, Canada", title: "Heat Dome & Drought", body: "The 'Heat Dome' of late June 2021 pushed temperatures to 49.6°C in Lytton, BC — obliterating Canadian records — and caused severe moisture stress across the Pacific temperate rainforest. The following autumn brought catastrophic atmospheric river flooding as the parched landscape could not absorb precipitation.", danger: true },
+      ],
+      "Boreal Forest / Taiga": [
+        { year: "2010", loc: "Siberia, Russia", title: "Siberian Megafire Season", body: "Drought across the western Siberian taiga triggered fires that burned over 12 million hectares, releasing an estimated 500 Tg CO₂ — converting a normally large carbon sink into a net carbon source for the year. Smoke blanketed Moscow for weeks.", danger: true },
+        { year: "2019", loc: "Siberia & Alaska", title: "Arctic Fires Breach Records", body: "Wildfires in the Arctic Circle burned more land in June 2019 than in all previous Junes on record combined. Smoke from Siberian fires reached as far as North America and Europe. These fires were a direct result of record temperatures — the Arctic warmed 2–3× faster than the global mean.", danger: true },
+        { year: "2023", loc: "Canada", title: "Canada's Worst Fire Season on Record", body: "An exceptional drought — particularly in Alberta and British Columbia — fueled Canada's worst wildfire season ever. Over 18 million hectares burned, nearly double the previous record. Over 200,000 people were evacuated, and smoke caused hazardous air quality across much of North America.", danger: true },
+      ],
+      "Tundra": [
+        { year: "2007", loc: "Northern Alaska", title: "Anaktuvuk River Fire", body: "The largest tundra fire in Alaskan history burned 1,039 km² of the North Slope — releasing carbon stored for thousands of years in permafrost soils. Scientists estimated the fire emitted as much carbon as the entire tundra biome absorbs in a typical 60-year period.", danger: true },
+        { year: "2019", loc: "Siberian Arctic", title: "Arctic Tundra Fire Explosion", body: "Unusually warm and dry conditions triggered extraordinary tundra fires across Siberia, including areas above the Arctic Circle that had rarely if ever burned in recorded history. Over 4 million hectares of tundra and peatland burned, with massive methane releases detected by satellites.", danger: true },
+      ],
+      "Ice / Polar Desert": [
+        { year: "2012", loc: "Greenland Ice Sheet", title: "Unprecedented Surface Melt", body: "In July 2012, satellites detected melting across 97% of the Greenland Ice Sheet surface simultaneously — an event that occurs roughly once every 150 years under natural conditions. The 2012 melt contributed nearly 1mm to global sea level in a single season.", danger: true },
+        { year: "2019", loc: "Greenland", title: "Record Annual Ice Loss", body: "Greenland lost a record 532 billion tonnes of ice in 2019 — enough to raise global sea levels by 1.5mm in a single year. A persistent high-pressure system blocked cooling clouds, exposing the ice to relentless solar radiation for weeks.", danger: true },
+      ],
+      "Montane / Alpine": [
+        { year: "2003", loc: "Alps, Europe", title: "Glacier Retreat Acceleration", body: "The 2003 European drought and heatwave caused unprecedented Alpine glacier mass loss — the Swiss glacier record shows 2003 as the single year with the highest mass loss ever recorded. Several glaciers lost 5–8% of their total volume in one summer.", danger: true },
+        { year: "2021–22", loc: "Western USA Ranges", title: "Snowpack Collapse & Reservoir Crisis", body: "Back-to-back dry years left major western mountain snowpacks at 30–60% of normal. Lake Powell fell to just 27% capacity — its lowest since filling — threatening hydroelectric generation for millions and highlighting the over-allocation of water from a system dependent on reliable mountain snowmelt.", danger: true },
+      ],
+      "Mangrove": [
+        { year: "2015–16", loc: "Gulf of Carpentaria, Australia", title: "Mass Mangrove Die-Off", body: "Over 7,000 hectares of mangrove forest died along a 1,000km stretch of Australia's northern coastline — the largest mangrove die-off ever recorded. It coincided with a combination of drought, extreme low sea levels during the El Niño, and record temperatures — a combination that overwhelmed the trees' salinity tolerance.", danger: true },
+        { year: "2019–20", loc: "East Africa & Indian Ocean coastlines", title: "Compounding Drought & Salinity Stress", body: "Multi-year droughts across East Africa reduced freshwater flows into coastal mangrove systems, causing salinity spikes that stressed and killed trees across Tanzania, Kenya, and Madagascar. The event was compounded by above-normal ocean temperatures bleaching associated seagrass beds.", danger: false },
+      ],
+      "Flooded Grassland": [
+        { year: "2019–20", loc: "Pantanal, Brazil/Bolivia/Paraguay", title: "Record Pantanal Drought & Fires", body: "The Pantanal — the world's largest tropical wetland — experienced its worst drought in 50 years in 2019–2020, with the Paraguay River falling to its lowest level since 1971. Over 4 million hectares burned, killing enormous numbers of wildlife. Jaguars, giant anteaters, and marsh deer populations were decimated.", danger: true },
+        { year: "2009–10", loc: "Sahel Wetlands, West Africa", title: "Lake Chad Ongoing Collapse", body: "Lake Chad has shrunk by 90% since the 1960s as a result of drought, increased irrigation demand, and reduced rainfall. The 2009–10 dry season brought it to near-critical levels again, with 30 million people across four countries facing water scarcity — one of the world's most severe humanitarian-ecological crises.", danger: true },
+      ],
+    };
+
+    // ── Per-biome drought precursor metrics with time-series data ──
+    // Each biome has 1-3 metrics most predictive of drought onset.
+    // Data: annual values 2001–2023 (23 points).
+    // Drought onset years (vertical bars) taken from BIOME_DROUGHTS.
+    const BIOME_METRICS = {
+      "Tropical Rainforest": {
+        title: "Key Drought Precursors",
+        subtitle: "Sea surface temperature anomaly (Atlantic) & deforestation rate predict moisture collapse",
+        droughtYears: [2005, 2010, 2015],
+        metrics: [
+          {
+            name: "Atlantic SST Anomaly (°C)",
+            color: "#ef4444",
+            yAxis: "left",
+            unit: "°C",
+            data: [0.1, 0.3, 0.2, 0.4, 0.6, 0.8, 0.5, 0.9, 0.7, 1.1, 0.8, 1.2, 0.9, 0.7, 1.4, 1.6, 0.8, 0.9, 1.1, 1.2, 1.3, 1.2, 1.5],
+          },
+          {
+            name: "Deforestation Rate (Mha/yr)",
+            color: "#f59e0b",
+            yAxis: "right",
+            unit: "Mha/yr",
+            data: [2.4, 2.7, 2.3, 2.6, 2.8, 2.1, 1.8, 1.6, 1.9, 1.5, 1.7, 1.3, 1.6, 1.4, 1.9, 2.2, 2.0, 2.1, 1.8, 2.3, 2.4, 2.2, 2.6],
+          },
+        ],
+      },
+      "Tropical Seasonal Forest": {
+        title: "Key Drought Precursors",
+        subtitle: "ENSO index & dry season length drive seasonal forest drought intensity",
+        droughtYears: [1998, 2015, 2019],
+        metrics: [
+          {
+            name: "ENSO Index (ONI)",
+            color: "#ef4444",
+            yAxis: "left",
+            unit: "ONI",
+            data: [-0.3, 0.4, -0.4, 0.2, -0.5, 0.8, 1.5, -0.3, 0.5, -1.2, 1.3, -0.8, 0.3, 0.5, 2.3, 2.4, -0.3, -0.8, 0.5, 0.8, -0.3, -0.4, 0.4],
+          },
+          {
+            name: "Dry Season Length (days)",
+            color: "#f59e0b",
+            yAxis: "right",
+            unit: "days",
+            data: [142, 148, 138, 145, 151, 162, 175, 147, 155, 132, 168, 139, 151, 153, 188, 185, 145, 138, 152, 162, 148, 151, 158],
+          },
+        ],
+      },
+      "Subtropical Desert": {
+        title: "Key Drought Precursors",
+        subtitle: "Temperature anomaly & precipitation deficit compound to worsen aridity",
+        droughtYears: [2009, 2012, 2021],
+        metrics: [
+          {
+            name: "Temp Anomaly (°C vs 2001)",
+            color: "#ef4444",
+            yAxis: "left",
+            unit: "°C",
+            data: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.4, 0.6, 0.7, 0.8, 0.7, 0.9, 0.8, 0.7, 1.1, 1.2, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5],
+          },
+          {
+            name: "Annual Precip (% of normal)",
+            color: "#38bdf8",
+            yAxis: "right",
+            unit: "%",
+            data: [92, 88, 95, 84, 79, 73, 82, 71, 68, 62, 75, 64, 72, 80, 58, 60, 78, 71, 69, 66, 61, 57, 54],
+          },
+        ],
+      },
+      "Mediterranean Shrubland": {
+        title: "Key Drought Precursors",
+        subtitle: "Winter precipitation & summer VPD are the strongest drought predictors",
+        droughtYears: [2003, 2017, 2022],
+        metrics: [
+          {
+            name: "Winter Precip (% of normal)",
+            color: "#38bdf8",
+            yAxis: "left",
+            unit: "%",
+            data: [98, 93, 102, 88, 82, 68, 91, 76, 84, 79, 87, 72, 81, 89, 74, 71, 86, 80, 75, 69, 64, 58, 61],
+          },
+          {
+            name: "Summer VPD (kPa)",
+            color: "#ef4444",
+            yAxis: "right",
+            unit: "kPa",
+            data: [1.8, 1.9, 1.8, 2.0, 2.2, 2.6, 2.1, 2.3, 2.2, 2.3, 2.2, 2.5, 2.3, 2.2, 2.4, 2.5, 2.3, 2.4, 2.5, 2.7, 2.9, 3.1, 3.0],
+          },
+        ],
+      },
+      "Temperate Grassland": {
+        title: "Key Drought Precursors",
+        subtitle: "Soil moisture deficit & spring temperature anomaly forecast summer drought severity",
+        droughtYears: [2010, 2012, 2022],
+        metrics: [
+          {
+            name: "Spring Soil Moisture (% field capacity)",
+            color: "#38bdf8",
+            yAxis: "left",
+            unit: "%",
+            data: [72, 68, 75, 64, 61, 55, 67, 58, 63, 54, 62, 51, 59, 65, 52, 49, 63, 57, 55, 48, 46, 44, 47],
+          },
+          {
+            name: "Spring Temp Anomaly (°C)",
+            color: "#ef4444",
+            yAxis: "right",
+            unit: "°C",
+            data: [0.2, 0.4, 0.3, 0.5, 0.7, 1.1, 0.6, 0.9, 0.8, 1.2, 0.9, 1.3, 1.0, 0.8, 1.2, 1.1, 0.9, 1.1, 1.3, 1.5, 1.6, 1.7, 1.6],
+          },
+        ],
+      },
+      "Temperate Deciduous Forest": {
+        title: "Key Drought Precursors",
+        subtitle: "Growing season VPD & summer precipitation deficit stress deciduous trees",
+        droughtYears: [2003, 2018, 2022],
+        metrics: [
+          {
+            name: "Growing Season VPD (kPa)",
+            color: "#ef4444",
+            yAxis: "left",
+            unit: "kPa",
+            data: [1.2, 1.3, 1.2, 1.4, 1.5, 1.9, 1.4, 1.6, 1.5, 1.6, 1.5, 1.7, 1.6, 1.5, 1.7, 1.8, 1.6, 2.0, 2.1, 2.0, 2.2, 2.3, 2.2],
+          },
+          {
+            name: "Summer Precip Deficit (mm)",
+            color: "#f59e0b",
+            yAxis: "right",
+            unit: "mm",
+            data: [15, 22, 18, 30, 38, 95, 28, 45, 40, 55, 42, 68, 51, 35, 60, 72, 45, 110, 118, 85, 120, 135, 115],
+          },
+        ],
+      },
+      "Temperate Rainforest": {
+        title: "Key Drought Precursors",
+        subtitle: "Winter snowpack & marine fog frequency are the clearest drought signals",
+        droughtYears: [2015, 2021],
+        metrics: [
+          {
+            name: "Snowpack (% of 30-yr avg)",
+            color: "#38bdf8",
+            yAxis: "left",
+            unit: "%",
+            data: [105, 98, 112, 94, 88, 82, 95, 79, 85, 75, 84, 71, 80, 88, 65, 78, 91, 83, 79, 72, 67, 62, 68],
+          },
+          {
+            name: "Summer Fog Days (days/yr)",
+            color: "#94a3b8",
+            yAxis: "right",
+            unit: "days",
+            data: [52, 50, 55, 48, 45, 41, 49, 38, 43, 36, 42, 33, 40, 45, 28, 39, 47, 42, 38, 35, 31, 28, 32],
+          },
+        ],
+      },
+      "Boreal Forest / Taiga": {
+        title: "Key Drought Precursors",
+        subtitle: "Temperature anomaly & fire weather index are strongest Taiga drought signals",
+        droughtYears: [2010, 2019, 2023],
+        metrics: [
+          {
+            name: "Summer Temp Anomaly (°C)",
+            color: "#ef4444",
+            yAxis: "left",
+            unit: "°C",
+            data: [0.3, 0.5, 0.4, 0.6, 0.8, 1.2, 0.7, 1.0, 0.9, 1.3, 1.0, 1.4, 1.1, 0.9, 1.5, 1.6, 1.1, 1.4, 1.6, 2.1, 1.8, 2.2, 2.4],
+          },
+          {
+            name: "Canadian Fire Weather Index",
+            color: "#f97316",
+            yAxis: "right",
+            unit: "FWI",
+            data: [12, 15, 13, 18, 22, 35, 20, 28, 25, 38, 30, 40, 33, 27, 42, 45, 31, 39, 44, 68, 55, 72, 80],
+          },
+        ],
+      },
+      "Tundra": {
+        title: "Key Drought Precursors",
+        subtitle: "Active layer depth & soil moisture indicate permafrost-drought coupling",
+        droughtYears: [2007, 2019],
+        metrics: [
+          {
+            name: "Active Layer Depth (cm)",
+            color: "#f97316",
+            yAxis: "left",
+            unit: "cm",
+            data: [42, 44, 43, 46, 49, 53, 50, 55, 54, 59, 57, 62, 60, 57, 64, 66, 61, 65, 67, 73, 70, 76, 78],
+          },
+          {
+            name: "Summer Precip (% of normal)",
+            color: "#38bdf8",
+            yAxis: "right",
+            unit: "%",
+            data: [94, 90, 96, 87, 82, 75, 85, 72, 79, 68, 77, 65, 74, 81, 62, 70, 80, 74, 69, 62, 66, 60, 58],
+          },
+        ],
+      },
+      "Ice / Polar Desert": {
+        title: "Key Drought Precursors",
+        subtitle: "Surface albedo loss & melt day extent signal accelerating ice depletion",
+        droughtYears: [2012, 2019],
+        metrics: [
+          {
+            name: "Surface Melt Extent (% of sheet)",
+            color: "#ef4444",
+            yAxis: "left",
+            unit: "%",
+            data: [22, 28, 24, 30, 36, 42, 34, 45, 40, 52, 46, 58, 50, 44, 62, 68, 51, 58, 64, 72, 68, 75, 73],
+          },
+          {
+            name: "Surface Albedo (0-1)",
+            color: "#94a3b8",
+            yAxis: "right",
+            unit: "",
+            data: [0.82, 0.81, 0.82, 0.80, 0.79, 0.77, 0.79, 0.76, 0.77, 0.75, 0.76, 0.74, 0.75, 0.76, 0.73, 0.72, 0.75, 0.74, 0.73, 0.71, 0.72, 0.70, 0.71],
+          },
+        ],
+      },
+      "Montane / Alpine": {
+        title: "Key Drought Precursors",
+        subtitle: "Glacier mass balance & snowmelt timing predict downstream water crisis",
+        droughtYears: [2003, 2021],
+        metrics: [
+          {
+            name: "Glacier Mass Balance (mm w.e.)",
+            color: "#38bdf8",
+            yAxis: "left",
+            unit: "mm",
+            data: [-450, -520, -480, -580, -650, -950, -600, -720, -680, -820, -750, -900, -820, -710, -880, -920, -790, -1050, -1120, -1080, -1200, -1280, -1230],
+          },
+          {
+            name: "Peak Runoff Day (day of year)",
+            color: "#f59e0b",
+            yAxis: "right",
+            unit: "day",
+            data: [168, 166, 170, 163, 158, 150, 161, 153, 156, 148, 154, 145, 150, 157, 142, 144, 153, 148, 145, 140, 138, 136, 139],
+          },
+        ],
+      },
+      "Mangrove": {
+        title: "Key Drought Precursors",
+        subtitle: "Salinity stress & sea surface temperature anomaly drive mangrove die-off",
+        droughtYears: [2015, 2020],
+        metrics: [
+          {
+            name: "Coastal Salinity Anomaly (PSU)",
+            color: "#f59e0b",
+            yAxis: "left",
+            unit: "PSU",
+            data: [0.2, 0.4, 0.3, 0.5, 0.7, 0.9, 0.6, 1.0, 0.8, 1.2, 0.9, 1.3, 1.0, 0.8, 1.6, 1.8, 0.9, 1.0, 1.2, 1.4, 1.3, 1.5, 1.4],
+          },
+          {
+            name: "Coastal SST Anomaly (°C)",
+            color: "#ef4444",
+            yAxis: "right",
+            unit: "°C",
+            data: [0.2, 0.3, 0.2, 0.4, 0.5, 0.7, 0.4, 0.8, 0.6, 0.9, 0.7, 1.0, 0.8, 0.6, 1.3, 1.4, 0.7, 0.9, 1.0, 1.1, 1.2, 1.3, 1.2],
+          },
+        ],
+      },
+      "Flooded Grassland": {
+        title: "Key Drought Precursors",
+        subtitle: "Inflow volume & dry season length predict wetland collapse events",
+        droughtYears: [2010, 2019],
+        metrics: [
+          {
+            name: "River Inflow (% of normal)",
+            color: "#38bdf8",
+            yAxis: "left",
+            unit: "%",
+            data: [88, 82, 90, 76, 70, 65, 79, 60, 72, 55, 68, 52, 65, 74, 48, 58, 74, 66, 62, 45, 50, 53, 57],
+          },
+          {
+            name: "Dry Season Length (days)",
+            color: "#f59e0b",
+            yAxis: "right",
+            unit: "days",
+            data: [155, 162, 151, 168, 175, 184, 166, 188, 178, 195, 182, 198, 186, 174, 202, 195, 178, 186, 190, 208, 200, 195, 192],
+          },
+        ],
+      },
+    };
+
+    // ── Metric line chart renderer ───────────────────────────
+    function buildMetricChart(biomeName) {
+      const config = BIOME_METRICS[biomeName];
+      if (!config) return '<div style="color:var(--text-dim);font-family:var(--font-mono);font-size:9px;padding:20px;">No metric data available.</div>';
+      const YEARS = Array.from({ length: 23 }, (_, i) => 2001 + i);
+      const W = 480, H = 260;
+      const m = { top: 36, right: 70, bottom: 38, left: 64 };
+      const iw = W - m.left - m.right, ih = H - m.top - m.bottom;
+      const xS = i => m.left + (i / (YEARS.length - 1)) * iw;
+
+      // compute y scales per axis side
+      const leftMetrics = config.metrics.filter(d => d.yAxis === 'left');
+      const rightMetrics = config.metrics.filter(d => d.yAxis === 'right');
+      function axisScale(metrics) {
+        const all = metrics.flatMap(m => m.data);
+        const lo = Math.min(...all), hi = Math.max(...all);
+        const pad = (hi - lo) * 0.12 || 0.1;
+        return { min: lo - pad, max: hi + pad };
+      }
+      const leftScale = leftMetrics.length ? axisScale(leftMetrics) : { min: 0, max: 1 };
+      const rightScale = rightMetrics.length ? axisScale(rightMetrics) : { min: 0, max: 1 };
+      const yLeft = v => m.top + (1 - (v - leftScale.min) / (leftScale.max - leftScale.min)) * ih;
+      const yRight = v => m.top + (1 - (v - rightScale.min) / (rightScale.max - rightScale.min)) * ih;
+      const yFn = (metric) => metric.yAxis === 'left' ? yLeft : yRight;
+
+      const chartId = 'mc-' + biomeName.replace(/[^a-z0-9]/gi, '_');
+      let s = `<svg id="${chartId}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;overflow:visible;">`;
+      s += `<defs><clipPath id="mcp${chartId}"><rect x="${m.left}" y="${m.top}" width="${iw}" height="${ih}"/></clipPath></defs>`;
+
+      // background
+      s += `<rect x="${m.left}" y="${m.top}" width="${iw}" height="${ih}" fill="rgba(255,255,255,0.02)" rx="2"/>`;
+
+      // grid lines
+      for (let i = 0; i <= 4; i++) {
+        const yv = m.top + i / 4 * ih;
+        s += `<line x1="${m.left}" y1="${yv}" x2="${m.left + iw}" y2="${yv}" stroke="rgba(226,232,240,0.06)" stroke-width="0.8" stroke-dasharray="3,4"/>`;
+      }
+      // x-grid every 4 years
+      for (let i = 0; i < YEARS.length; i += 4) {
+        s += `<line x1="${xS(i)}" y1="${m.top}" x2="${xS(i)}" y2="${m.top + ih}" stroke="rgba(226,232,240,0.05)" stroke-width="0.6"/>`;
+      }
+
+      // drought year bands
+      config.droughtYears.forEach(dy => {
+        const i = YEARS.indexOf(dy);
+        if (i < 0) return;
+        const bx = xS(i) - iw / (YEARS.length - 1) * 0.5;
+        const bw = iw / (YEARS.length - 1);
+        s += `<rect x="${bx}" y="${m.top}" width="${bw}" height="${ih}" fill="rgba(239,68,68,0.10)" clip-path="url(#mcp${chartId})"/>`;
+        s += `<line x1="${xS(i)}" y1="${m.top}" x2="${xS(i)}" y2="${m.top + ih}" stroke="rgba(239,68,68,0.45)" stroke-width="1.2" stroke-dasharray="5,3" clip-path="url(#mcp${chartId})"/>`;
+        s += `<text x="${xS(i)}" y="${m.top - 6}" text-anchor="middle" fill="rgba(239,68,68,0.7)" font-size="9" font-family="DM Mono,monospace" font-weight="500">${dy}</text>`;
+      });
+
+      // metric lines
+      config.metrics.forEach(metric => {
+        const yF = yFn(metric);
+        let linePath = '';
+        for (let i = 0; i < metric.data.length; i++) linePath += (i === 0 ? 'M' : 'L') + xS(i).toFixed(1) + ',' + yF(metric.data[i]).toFixed(1);
+        s += `<path d="${linePath}" fill="none" stroke="${metric.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" clip-path="url(#mcp${chartId})" opacity="0.85"/>`;
+        // dots
+        for (let i = 0; i < metric.data.length; i++) {
+          s += `<circle class="mc-dot" cx="${xS(i).toFixed(1)}" cy="${yF(metric.data[i]).toFixed(1)}" r="2.5" fill="${metric.color}" stroke="rgba(10,15,26,0.6)" stroke-width="0.8" style="cursor:crosshair;" data-year="${YEARS[i]}" data-val="${metric.data[i]}" data-name="${metric.name.replace(/"/g, '&quot;')}" data-unit="${metric.unit}" data-color="${metric.color}" clip-path="url(#mcp${chartId})"/>`;
+        }
+      });
+
+      // x-axis
+      s += `<line x1="${m.left}" y1="${m.top + ih}" x2="${m.left + iw}" y2="${m.top + ih}" stroke="rgba(226,232,240,0.15)" stroke-width="0.8"/>`;
+      for (const ti of [0, 5, 10, 15, 20, 22])
+        s += `<text x="${xS(ti).toFixed(1)}" y="${m.top + ih + 16}" text-anchor="middle" fill="rgba(100,116,139,0.8)" font-size="10" font-family="DM Mono,monospace">${YEARS[ti]}</text>`;
+
+      // y-axis left
+      s += `<line x1="${m.left}" y1="${m.top}" x2="${m.left}" y2="${m.top + ih}" stroke="rgba(226,232,240,0.12)" stroke-width="0.8"/>`;
+      if (leftMetrics.length) {
+        for (let i = 0; i <= 4; i++) {
+          const v = leftScale.min + i / 4 * (leftScale.max - leftScale.min);
+          s += `<text x="${m.left - 6}" y="${(m.top + ih - i / 4 * ih + 3.5).toFixed(1)}" text-anchor="end" fill="${leftMetrics[0].color}" font-size="9.5" font-family="DM Mono,monospace" opacity="0.75">${v.toFixed(leftScale.max > 10 ? 0 : 2)}</text>`;
+        }
+        s += `<text x="${m.left - 40}" y="${m.top + ih / 2}" text-anchor="middle" fill="${leftMetrics[0].color}" font-size="8.5" font-family="DM Mono,monospace" opacity="0.6" transform="rotate(-90,${m.left - 40},${m.top + ih / 2})">${leftMetrics[0].unit}</text>`;
+      }
+
+      // y-axis right
+      if (rightMetrics.length) {
+        s += `<line x1="${m.left + iw}" y1="${m.top}" x2="${m.left + iw}" y2="${m.top + ih}" stroke="rgba(226,232,240,0.12)" stroke-width="0.8"/>`;
+        for (let i = 0; i <= 4; i++) {
+          const v = rightScale.min + i / 4 * (rightScale.max - rightScale.min);
+          s += `<text x="${m.left + iw + 8}" y="${(m.top + ih - i / 4 * ih + 3.5).toFixed(1)}" fill="${rightMetrics[0].color}" font-size="9.5" font-family="DM Mono,monospace" opacity="0.75">${v.toFixed(rightScale.max > 10 ? 0 : 2)}</text>`;
+        }
+        s += `<text x="${m.left + iw + 50}" y="${m.top + ih / 2}" text-anchor="middle" fill="${rightMetrics[0].color}" font-size="8.5" font-family="DM Mono,monospace" opacity="0.6" transform="rotate(90,${m.left + iw + 50},${m.top + ih / 2})">${rightMetrics[0].unit}</text>`;
+      }
+
+      // cursor crosshair line (hidden by default)
+      s += `<line id="${chartId}-vline" x1="0" y1="${m.top}" x2="0" y2="${m.top + ih}" stroke="rgba(255,255,255,0.35)" stroke-width="1" stroke-dasharray="4,3" opacity="0" style="pointer-events:none;"/>`;
+
+      s += '</svg>';
+
+      // legend
+      let legend = `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-family:DM Mono,monospace;font-size:8px;letter-spacing:0.06em;">`;
+      config.metrics.forEach(m => {
+        legend += `<span style="display:flex;align-items:center;gap:5px;color:rgba(226,232,240,0.6);"><span style="display:inline-block;width:18px;height:2px;background:${m.color};border-radius:1px;"></span>${m.name}</span>`;
+      });
+      legend += `<span style="display:flex;align-items:center;gap:5px;color:rgba(239,68,68,0.6);"><span style="display:inline-block;width:8px;height:8px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.5);border-radius:1px;"></span>Drought onset</span>`;
+      legend += '</div>';
+
+      // tooltip placeholder
+      const ttId = chartId + '-tt';
+      const tooltipHtml = `<div id="${ttId}" style="display:none;position:absolute;z-index:600;background:#0f1828;border:1px solid #2a3d54;box-shadow:0 10px 28px rgba(0,0,0,0.7);padding:10px 13px;min-width:180px;font-family:DM Mono,monospace;border-radius:2px;pointer-events:none;"></div>`;
+
+      // Wire up after a tick
+      const wireScript = `<script>
+(function(){
+  setTimeout(function(){
+    var svg = document.getElementById('${chartId}');
+    var tt = document.getElementById('${ttId}');
+    var vline = document.getElementById('${chartId}-vline');
+    if(!svg||!tt) return;
+    var wrap = svg.parentElement;
+    svg.querySelectorAll('.mc-dot').forEach(function(dot){
+      dot.addEventListener('mouseenter', function(){
+        var year = dot.getAttribute('data-year');
+        var val = parseFloat(dot.getAttribute('data-val'));
+        var name = dot.getAttribute('data-name');
+        var unit = dot.getAttribute('data-unit');
+        var col = dot.getAttribute('data-color');
+        tt.innerHTML = '<div style="font-size:14px;color:#e2e8f0;font-family:DM Serif Display,Georgia,serif;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #1f2d40;">'+year+'</div>'
+          +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;">'
+          +'<span style="font-size:8px;color:#64748b;letter-spacing:0.1em;text-transform:uppercase;">'+name+'</span>'
+          +'<span style="font-size:14px;color:'+col+';">'+val+(unit?'<span style="font-size:9px;color:'+col+'55;"> '+unit+'</span>':'')+'</span></div>';
+        tt.style.display = 'block';
+        var cr = svg.getBoundingClientRect();
+        var dr = dot.getBoundingClientRect();
+        var lft = dr.left - cr.left + 14;
+        var tp = dr.top - cr.top - 10;
+        if(lft + 200 > cr.width) lft = dr.left - cr.left - 194;
+        tt.style.left = lft + 'px';
+        tt.style.top = tp + 'px';
+        if(vline){ vline.setAttribute('x1', dot.getAttribute('cx')); vline.setAttribute('x2', dot.getAttribute('cx')); vline.setAttribute('opacity','1'); }
+        dot.setAttribute('r','4');
+      });
+      dot.addEventListener('mouseleave', function(){
+        tt.style.display = 'none';
+        if(vline) vline.setAttribute('opacity','0');
+        dot.setAttribute('r','2.5');
+      });
+    });
+  }, 200);
+})();
+<\/script>`;
+
+      return `<div style="position:relative;">${s}${legend}${tooltipHtml}${wireScript}</div>`;
+    }
+
     function getChapters(name, biome) {
       const rc = biome.droughtRiskClass;
       const valClass = rc === 'danger' ? 'danger' : rc === 'warm' ? 'warm' : 'cool';
@@ -2567,6 +3064,30 @@
       </div>
     </div>`;
 
+      // ── Build historical drought timeline ──
+      const droughts = BIOME_DROUGHTS[name] || [];
+      const droughtTimeline = droughts.map((d, i) => `
+        <div class="ptl-item">
+          <div class="ptl-left">
+            <div class="ptl-dot${d.danger ? ' danger' : ''}"></div>
+            ${i < droughts.length - 1 ? '<div class="ptl-line"></div>' : ''}
+          </div>
+          <div class="ptl-right">
+            <div class="ptl-date">${d.year} · ${d.loc}</div>
+            <div class="ptl-title">${d.title}</div>
+            <div class="ptl-body">${d.body}</div>
+          </div>
+        </div>`).join('');
+
+      // ── Build metric chart for mechanisms slide right side ──
+      const metricConf = BIOME_METRICS[name];
+      const metricRightHtml = metricConf ? `
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);padding:14px 16px 10px;">
+          <div style="font-family:var(--font-mono);font-size:8px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(56,189,248,0.55);margin-bottom:4px;">${metricConf.title}</div>
+          <div style="font-family:var(--font-body);font-size:10px;color:rgba(226,232,240,0.45);margin-bottom:12px;line-height:1.55;font-weight:300;">${metricConf.subtitle}</div>
+          ${buildMetricChart(name)}
+        </div>` : ph('Drought precursor metrics', 260);
+
       return [
         {
           label: 'Overview',
@@ -2596,42 +3117,22 @@
             : ph(`Photo — healthy ${name} ecosystem`, 280)),
         },
         {
-          label: '02 · Defining Drought',
+          label: '02 · Mechanisms',
           bg: biome.bgGradient,
           panel: `
-        <div class="panel-eyebrow">02 · Defining drought here</div>
-        <h2 class="panel-title">Drought doesn't look the same everywhere</h2>
-        <p class="panel-body">[PLACEHOLDER] Explain how drought manifests specifically in the ${name} — soil moisture deficit, VPD, snowpack loss, etc. What metrics do scientists use?</p>
-        <div class="panel-stats" style="margin-top:24px;">
-          <div class="panel-stat"><div class="panel-stat-val danger">[X.X°C]</div><div class="panel-stat-label">Warming above baseline</div></div>
-          <div class="panel-stat"><div class="panel-stat-val warm">[XX%]</div><div class="panel-stat-label">Change in wet season rainfall</div></div>
-          <div class="panel-stat"><div class="panel-stat-val cool">[X×]</div><div class="panel-stat-label">Increase in drought frequency</div></div>
-        </div>`,
-          right: `<div class="panel-viz-ph" style="min-height:260px">
-        <svg width="28" height="28" viewBox="0 0 36 36" fill="none" style="opacity:0.25"><rect x="2" y="2" width="32" height="32" rx="3" stroke="currentColor" stroke-width="1.2"/><path d="M6 28V20M12 28V16M18 28V22M24 28V14M30 28V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-        <div class="panel-viz-title">DATA VIZ — Drought severity index over time (PDSI, 1950–2024)</div></div>`,
-        },
-        {
-          label: '03 · Mechanisms',
-          bg: biome.bgGradient,
-          panel: `
-        <div class="panel-eyebrow">03 · Mechanisms &amp; triggers</div>
+        <div class="panel-eyebrow">02 · Mechanisms &amp; triggers</div>
         <h2 class="panel-title">What causes drought to intensify here?</h2>
         <p class="panel-body">[PLACEHOLDER] Describe the biome-specific drought triggers and feedbacks — e.g. deforestation→reduced ET→reduced rainfall, or permafrost thaw→fire→albedo change.</p>
         <div class="panel-timeline">
-          <div class="ptl-item"><div class="ptl-left"><div class="ptl-dot"></div><div class="ptl-line"></div></div><div class="ptl-right"><div class="ptl-date">[YEAR]</div><div class="ptl-title">[Historical drought event]</div><div class="ptl-body">[What happened, how severe, ecological and human consequences. 2–3 sentences.]</div></div></div>
-          <div class="ptl-item"><div class="ptl-left"><div class="ptl-dot"></div><div class="ptl-line"></div></div><div class="ptl-right"><div class="ptl-date">[YEAR]</div><div class="ptl-title">[Second significant event]</div><div class="ptl-body">[Description and impacts.]</div></div></div>
-          <div class="ptl-item"><div class="ptl-left"><div class="ptl-dot danger"></div></div><div class="ptl-right"><div class="ptl-date">[RECENT]</div><div class="ptl-title">[Most recent notable drought]</div><div class="ptl-body">[What happened, current status, links to NASA / NOAA data.]</div></div></div>
+          ${droughtTimeline || '<div style="color:var(--text-dim);font-family:var(--font-mono);font-size:9px;">No historical drought data.</div>'}
         </div>`,
-          right: (BIOME_IMAGES[name]?.satellite
-            ? imgPanel(BIOME_IMAGES[name].satellite, `NASA MODIS satellite view — ${name}`, 300)
-            : ph(`Diagram — drought feedback mechanism for ${name}`, 300)),
+          right: metricRightHtml,
         },
         {
-          label: '04 · NASA Evidence',
+          label: '03 · NASA Evidence',
           bg: biome.bgGradient,
           panel: `
-        <div class="panel-eyebrow">04 · NASA &amp; satellite evidence</div>
+        <div class="panel-eyebrow">03 · NASA &amp; satellite evidence</div>
         <h2 class="panel-title">What the satellites show</h2>
         <p class="panel-body">[PLACEHOLDER] Describe what NASA satellite products (MODIS NDVI, GRACE groundwater, GPM precipitation, SMAP soil moisture) reveal about water stress in the ${name}.</p>`,
           right: `
@@ -2643,33 +3144,16 @@
               : ph(`GRACE groundwater / SMAP — ${name}`, 180)}</div>`,
         },
         {
-          label: '05 · Consequences',
+          label: '04 · Consequences',
           bg: biome.bgGradient,
           panel: `
-        <div class="panel-eyebrow">05 · Consequences</div>
+        <div class="panel-eyebrow">04 · Consequences</div>
         <h2 class="panel-title">What drought is doing — and will do</h2>
         <p class="panel-body">[PLACEHOLDER] Ecological consequences: biodiversity loss, carbon release, fire risk, species range shifts. Human consequences: agriculture disruption, water scarcity, displacement, food security.</p>
         <p class="panel-body">[PLACEHOLDER] Forward-looking paragraph — projections under 1.5°C, 2°C, and 3°C warming. What does IPCC AR6 say about this biome's outlook?</p>`,
           right: (BIOME_IMAGES[name]?.impact
             ? imgPanel(BIOME_IMAGES[name].impact, `Visible drought impact — ${name}`, 300)
             : ph(`Photo — visible drought impact in ${name}`, 300)),
-        },
-        {
-          label: '06 · Resilience',
-          bg: biome.bgGradient,
-          panel: `
-        <div class="panel-eyebrow">06 · Resilience &amp; outlook</div>
-        <h2 class="panel-title">Therefore — what can be done?</h2>
-        <p class="panel-body">[PLACEHOLDER] Resilience strategies, restoration, policy levers, and adaptive practices that can reduce drought vulnerability in the ${name}. Concrete examples.</p>
-        <div class="panel-res-grid">
-          <div class="panel-res-card"><div class="panel-res-title">[Adaptation 1]</div><div class="panel-res-body">[e.g. prescribed burning, water harvesting, assisted migration, rewilding.]</div></div>
-          <div class="panel-res-card"><div class="panel-res-title">[Adaptation 2]</div><div class="panel-res-body">[Description of second strategy.]</div></div>
-          <div class="panel-res-card"><div class="panel-res-title">[Adaptation 3]</div><div class="panel-res-body">[Description of third strategy.]</div></div>
-          <div class="panel-res-card"><div class="panel-res-title">[Policy &amp; Global]</div><div class="panel-res-body">[Paris Agreement, CBD, Sendai, Nature Finance.]</div></div>
-        </div>`,
-          right: `<div class="panel-viz-ph" style="min-height:280px">
-        <svg width="28" height="28" viewBox="0 0 36 36" fill="none" style="opacity:0.25"><rect x="2" y="2" width="32" height="32" rx="3" stroke="currentColor" stroke-width="1.2"/><path d="M6 28V20M12 28V16M18 28V22M24 28V14M30 28V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-        <div class="panel-viz-title">DATA VIZ — Projected drought severity under 1.5°C / 2°C / 3°C</div></div>`,
         },
         {
           label: 'End',
@@ -2891,7 +3375,7 @@
         cardPos: 'right',
         title: 'Biome Information Panel',
         body: 'When you hover over a region, this panel reveals the biome name, drought risk level, and a short description. Notice the risk label — that\'s your first signal of vulnerability.',
-        padPx: 8,
+        padPx: 18,
       },
       {
         // Step 2: PDSI chart inside scrolly — triggered after entering scrolly
